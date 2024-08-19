@@ -114,7 +114,7 @@ char *readFileData(const char *path)
         if (len + result - 1 > dlen)
         {
           dlen += result;
-          if ((r = realloc(data, dlen)) <= 0)
+          if ((r = realloc(data, dlen)) == NULL)
           {
             printf("Can't allocate memory");
             if (r != NULL)
@@ -140,7 +140,7 @@ char *readFileData(const char *path)
     fclose(fd);
 
     dlen += 1;
-    if ((r = realloc(data, dlen + 1)) <= 0)
+    if ((r = realloc(data, dlen + 1)) == NULL)
     {
       if (r != NULL)
         free(r);

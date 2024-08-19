@@ -30,7 +30,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C"
 {
 #if ENABLE_I2C
-#include <linux/i2c-dev.h>
+extern "C" {
+  #include <linux/i2c-dev.h>
+  #include <i2c/smbus.h>
+}
+
 #include <fcntl.h>
 #ifdef DMALLOC
 #include <dmalloc.h>
@@ -49,13 +53,11 @@ extern "C"
 
 #define FOUND_SIZE 0xFF
 
-bool LT_SMBusBase::open_ = true;
+bool LT_SMBusBase::open_ = false;
 uint8_t LT_SMBusBase::found_address_[FOUND_SIZE + 1];
 int32_t LT_SMBusBase::file_;
 
-LT_SMBusBase::LT_SMBusBase()
-{
-}
+LT_SMBusBase::LT_SMBusBase(){}
 
 LT_SMBusBase::LT_SMBusBase(uint32_t speed){}
 
@@ -73,10 +75,11 @@ LT_SMBusBase::~LT_SMBusBase()
 void LT_SMBusBase::clearBuffer()
 {
   char buf[256];
+  ssize_t s;
   // This is intended to clear any data left over from a problem.
   // The known case of extra data is after a NACK.
   // Note that Rasp Pi also has a clock stretch bug.
-  read(LT_SMBusBase::file_, &buf, 256);
+  s = read(LT_SMBusBase::file_, &buf, 256);
 }
 
 void LT_SMBusBase::setPec()
@@ -141,15 +144,14 @@ int LT_SMBusBase::readByte(uint8_t address, uint8_t command)
   setPec();  
   if (ioctl(LT_SMBusBase::file_, (unsigned long int)I2C_SLAVE, address) < 0)
     throw LT_Exception("Read Byte: fail address");
-  //printf("readByte at address 0x%02x with command 0x%02x\n", address, command);
+//  printf("readByte at address 0x%02x with command 0x%02x\n", address, command);
 
   if ((result = i2c_smbus_read_byte_data(LT_SMBusBase::file_, command)) == -1)
   {
     throw LT_Exception("Read Byte: fail data");
   }
   else
-
-  return (int) result;
+    return (int) result;
 #else
   printf("Read Byte: addr 0x%x02, cmd 0x%x02\n", address, command);
   return 0;
@@ -184,11 +186,12 @@ int LT_SMBusBase::readWord(uint8_t address, uint8_t command)
   setPec();
   if (ioctl(LT_SMBusBase::file_, (unsigned long int)I2C_SLAVE, address) < 0)
     throw LT_Exception("Read Word: fail address");
-  //printf("readWord at address 0x%02x with command 0x%02x\n", address, command);
+//  printf("readWord at address 0x%02x with command 0x%02x\n", address, command);
+
   if((result = i2c_smbus_read_word_data(LT_SMBusBase::file_, command)) == -1)
   {
     char msg[132];
-    sprintf(msg, "Read Word: fail data with address 0x%02 command 0x%02x result %d", address, command, result);
+    sprintf(msg, "Read Word: fail data with address 0x%02x command 0x%02x result %d", address, command, result);
     throw LT_Exception(msg);
   }
   else
@@ -387,7 +390,6 @@ uint8_t *LT_SMBusBase::probeUnique(uint8_t command)
 //  buffer[0] = command;
 
 //  return probe(command);
-
   setPec();
   for (address = 0x10; address < 0x7F; address++)
   {
@@ -400,21 +402,22 @@ uint8_t *LT_SMBusBase::probeUnique(uint8_t command)
     if (address == 0x7C)
       continue;
 
-    //printf("File %d Addr 0x%x\n", file_, address);./
+    //printf("File %d Addr 0x%x\n", file_, address);
 
     result = ioctl(LT_SMBusBase::file_, (unsigned long int)I2C_SLAVE, address);
-    if (result == EBUSY)
+    if (result == EBUSY) 
       continue;
     else if (result < 0)
       throw LT_Exception("Probe Unique: fail address");
 
     result = i2c_smbus_read_byte_data(LT_SMBusBase::file_, command);
 
-    //printf("probe data result %d\n", result);
     if (result >= 0)
     { 
       if (found < FOUND_SIZE)
+      {
         found_address_[found++] = address;
+      }
     }
 
   }
