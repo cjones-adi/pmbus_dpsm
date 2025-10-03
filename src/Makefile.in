@@ -99,28 +99,20 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
-am_LT_PMBusApp_OBJECTS = LT_PMBusApp.$(OBJEXT) LT_PMBus.$(OBJEXT) \
-	LT_SMBus.$(OBJEXT) LT_SMBusBase.$(OBJEXT) \
-	LT_SMBusPec.$(OBJEXT) LT_SMBusNoPec.$(OBJEXT) \
-	LT_SMBusGroup.$(OBJEXT) LT_PMBusSpeedTest.$(OBJEXT) \
-	LT_PMBusMath.$(OBJEXT) LT_Exception.$(OBJEXT) \
-	LT_FaultLog.$(OBJEXT) LT_3880FaultLog.$(OBJEXT) \
+am__objects_1 = LT_2972FaultLog.$(OBJEXT) LT_2974FaultLog.$(OBJEXT) \
+	LT_2975FaultLog.$(OBJEXT) LT_2977FaultLog.$(OBJEXT) \
+	LT_2978FaultLog.$(OBJEXT) LT_3880FaultLog.$(OBJEXT) \
 	LT_3882FaultLog.$(OBJEXT) LT_3883FaultLog.$(OBJEXT) \
 	LT_3884FaultLog.$(OBJEXT) LT_3886FaultLog.$(OBJEXT) \
 	LT_3887FaultLog.$(OBJEXT) LT_3888FaultLog.$(OBJEXT) \
 	LT_3889FaultLog.$(OBJEXT) LT_7880FaultLog.$(OBJEXT) \
-	LT_2972FaultLog.$(OBJEXT) LT_2974FaultLog.$(OBJEXT) \
-	LT_2975FaultLog.$(OBJEXT) LT_2977FaultLog.$(OBJEXT) \
-	LT_2978FaultLog.$(OBJEXT) main_record_processor.$(OBJEXT) \
-	LT_Nvm.$(OBJEXT) nvm_data_helpers.$(OBJEXT) \
-	hex_file_parser.$(OBJEXT) httoi.$(OBJEXT) \
-	LT_PMBusDetect.$(OBJEXT) LT_PMBusDevice.$(OBJEXT) \
-	LT_PMBusDeviceLTC2972.$(OBJEXT) \
+	LT_FaultLog.$(OBJEXT)
+am__objects_2 = LT_PMBusDeviceLTC2972.$(OBJEXT) \
 	LT_PMBusDeviceLTC2974.$(OBJEXT) \
 	LT_PMBusDeviceLTC2975.$(OBJEXT) \
 	LT_PMBusDeviceLTC2977.$(OBJEXT) \
 	LT_PMBusDeviceLTC2978.$(OBJEXT) \
-	LT_PMBusDeviceLTC2979.$(OBJEXT) LT_PMBusRail.$(OBJEXT) \
+	LT_PMBusDeviceLTC2979.$(OBJEXT) \
 	LT_PMBusDeviceLTC2980.$(OBJEXT) \
 	LT_PMBusDeviceLTC3880.$(OBJEXT) \
 	LT_PMBusDeviceLTC3882.$(OBJEXT) \
@@ -140,6 +132,18 @@ am_LT_PMBusApp_OBJECTS = LT_PMBusApp.$(OBJEXT) LT_PMBus.$(OBJEXT) \
 	LT_PMBusDeviceLTM4680.$(OBJEXT) \
 	LT_PMBusDeviceLTM4686.$(OBJEXT) \
 	LT_PMBusDeviceLTM4700.$(OBJEXT)
+am__objects_3 = LT_SMBus.$(OBJEXT) LT_SMBusBase.$(OBJEXT) \
+	LT_SMBusGroup.$(OBJEXT) LT_SMBusNoPec.$(OBJEXT) \
+	LT_SMBusPec.$(OBJEXT)
+am__objects_4 = LT_PMBus.$(OBJEXT) LT_PMBusDetect.$(OBJEXT) \
+	LT_PMBusDevice.$(OBJEXT) LT_PMBusMath.$(OBJEXT) \
+	LT_PMBusRail.$(OBJEXT) LT_PMBusSpeedTest.$(OBJEXT)
+am__objects_5 = hex_file_parser.$(OBJEXT) httoi.$(OBJEXT) \
+	main_record_processor.$(OBJEXT) nvm_data_helpers.$(OBJEXT)
+am__objects_6 = LT_Exception.$(OBJEXT) LT_Nvm.$(OBJEXT)
+am_LT_PMBusApp_OBJECTS = LT_PMBusApp.$(OBJEXT) $(am__objects_1) \
+	$(am__objects_2) $(am__objects_3) $(am__objects_4) \
+	$(am__objects_5) $(am__objects_6)
 LT_PMBusApp_OBJECTS = $(am_LT_PMBusApp_OBJECTS)
 LT_PMBusApp_LDADD = $(LDADD)
 LT_PMBusApp_DEPENDENCIES =
@@ -284,6 +288,9 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PKG_CONFIG = @PKG_CONFIG@
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+PKG_CONFIG_PATH = @PKG_CONFIG_PATH@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
@@ -331,30 +338,98 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-LT_PMBusApp_SOURCES = LT_PMBusApp.cpp LT_PMBus.cpp LT_SMBus.cpp \
-	LT_SMBusBase.cpp LT_SMBusPec.cpp LT_SMBusNoPec.cpp \
-	LT_SMBusGroup.cpp LT_PMBusSpeedTest.cpp LT_PMBusMath.cpp \
-	LT_Exception.cpp LT_FaultLog.cpp LT_3880FaultLog.cpp \
-	LT_3882FaultLog.cpp LT_3883FaultLog.cpp LT_3884FaultLog.cpp \
-	LT_3886FaultLog.cpp LT_3887FaultLog.cpp LT_3888FaultLog.cpp \
-	LT_3889FaultLog.cpp LT_7880FaultLog.cpp LT_2972FaultLog.cpp \
-	LT_2974FaultLog.cpp LT_2975FaultLog.cpp LT_2977FaultLog.cpp \
-	LT_2978FaultLog.cpp main_record_processor.cpp LT_Nvm.cpp \
-	nvm_data_helpers.cpp hex_file_parser.cpp httoi.cpp \
-	LT_PMBusDetect.cpp LT_PMBusDevice.cpp \
-	LT_PMBusDeviceLTC2972.cpp LT_PMBusDeviceLTC2974.cpp \
-	LT_PMBusDeviceLTC2975.cpp LT_PMBusDeviceLTC2977.cpp \
-	LT_PMBusDeviceLTC2978.cpp LT_PMBusDeviceLTC2979.cpp \
-	LT_PMBusRail.cpp LT_PMBusDeviceLTC2980.cpp \
-	LT_PMBusDeviceLTC3880.cpp LT_PMBusDeviceLTC3882.cpp \
-	LT_PMBusDeviceLTC3883.cpp LT_PMBusDeviceLTC3884.cpp \
-	LT_PMBusDeviceLTC3886.cpp LT_PMBusDeviceLTC3887.cpp \
-	LT_PMBusDeviceLTC3888.cpp LT_PMBusDeviceLTC3889.cpp \
-	LT_PMBusDeviceLTC7880.cpp LT_PMBusDeviceLTM2987.cpp \
-	LT_PMBusDeviceLTM4664.cpp LT_PMBusDeviceLTM4675.cpp \
-	LT_PMBusDeviceLTM4676.cpp LT_PMBusDeviceLTM4677.cpp \
-	LT_PMBusDeviceLTM4678.cpp LT_PMBusDeviceLTM4680.cpp \
-	LT_PMBusDeviceLTM4686.cpp LT_PMBusDeviceLTM4700.cpp
+
+# Fault Log Sources (organized alphabetically)
+FAULT_LOG_SOURCES = \
+	LT_2972FaultLog.cpp \
+	LT_2974FaultLog.cpp \
+	LT_2975FaultLog.cpp \
+	LT_2977FaultLog.cpp \
+	LT_2978FaultLog.cpp \
+	LT_3880FaultLog.cpp \
+	LT_3882FaultLog.cpp \
+	LT_3883FaultLog.cpp \
+	LT_3884FaultLog.cpp \
+	LT_3886FaultLog.cpp \
+	LT_3887FaultLog.cpp \
+	LT_3888FaultLog.cpp \
+	LT_3889FaultLog.cpp \
+	LT_7880FaultLog.cpp \
+	LT_FaultLog.cpp
+
+
+# PMBus Device Sources (organized alphabetically)
+PMBUS_DEVICE_SOURCES = \
+	LT_PMBusDeviceLTC2972.cpp \
+	LT_PMBusDeviceLTC2974.cpp \
+	LT_PMBusDeviceLTC2975.cpp \
+	LT_PMBusDeviceLTC2977.cpp \
+	LT_PMBusDeviceLTC2978.cpp \
+	LT_PMBusDeviceLTC2979.cpp \
+	LT_PMBusDeviceLTC2980.cpp \
+	LT_PMBusDeviceLTC3880.cpp \
+	LT_PMBusDeviceLTC3882.cpp \
+	LT_PMBusDeviceLTC3883.cpp \
+	LT_PMBusDeviceLTC3884.cpp \
+	LT_PMBusDeviceLTC3886.cpp \
+	LT_PMBusDeviceLTC3887.cpp \
+	LT_PMBusDeviceLTC3888.cpp \
+	LT_PMBusDeviceLTC3889.cpp \
+	LT_PMBusDeviceLTC7880.cpp \
+	LT_PMBusDeviceLTM2987.cpp \
+	LT_PMBusDeviceLTM4664.cpp \
+	LT_PMBusDeviceLTM4675.cpp \
+	LT_PMBusDeviceLTM4676.cpp \
+	LT_PMBusDeviceLTM4677.cpp \
+	LT_PMBusDeviceLTM4678.cpp \
+	LT_PMBusDeviceLTM4680.cpp \
+	LT_PMBusDeviceLTM4686.cpp \
+	LT_PMBusDeviceLTM4700.cpp
+
+
+# SMBus Sources
+SMBUS_SOURCES = \
+	LT_SMBus.cpp \
+	LT_SMBusBase.cpp \
+	LT_SMBusGroup.cpp \
+	LT_SMBusNoPec.cpp \
+	LT_SMBusPec.cpp
+
+
+# Core PMBus Sources
+PMBUS_CORE_SOURCES = \
+	LT_PMBus.cpp \
+	LT_PMBusDetect.cpp \
+	LT_PMBusDevice.cpp \
+	LT_PMBusMath.cpp \
+	LT_PMBusRail.cpp \
+	LT_PMBusSpeedTest.cpp
+
+
+# Utility Sources  
+UTIL_SOURCES = \
+	hex_file_parser.cpp \
+	httoi.cpp \
+	main_record_processor.cpp \
+	nvm_data_helpers.cpp
+
+
+# Other Core Sources
+OTHER_SOURCES = \
+	LT_Exception.cpp \
+	LT_Nvm.cpp
+
+
+# Combine all sources for the executable
+LT_PMBusApp_SOURCES = \
+	LT_PMBusApp.cpp \
+	$(FAULT_LOG_SOURCES) \
+	$(PMBUS_DEVICE_SOURCES) \
+	$(SMBUS_SOURCES) \
+	$(PMBUS_CORE_SOURCES) \
+	$(UTIL_SOURCES) \
+	$(OTHER_SOURCES)
+
 
 # Add this for dmalloc
 # -I../dmalloc-5.5.2 -DDMALLOC

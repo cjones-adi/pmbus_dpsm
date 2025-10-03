@@ -1,0 +1,390 @@
+@startuml EEPROM_Programming_Architecture
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam classBackgroundColor #F8F9FA
+skinparam classBorderColor #6C757D
+skinparam classArrowColor #495057
+skinparam noteBackgroundColor #E7F3FF
+skinparam noteBorderColor #0056B3
+skinparam sequenceArrowColor #495057
+
+title PMBus DPSM - EEPROM Programming Flow Architecture\nIntel HEX Processing & In-System Programming
+
+package "Application Layer" {
+    class PMBusApp {
+        + program_nvm(path : char*) : void
+        + verify_nvm(path : char*) : void
+        + restore_nvm() : void
+        + wait_for_nvm() : void
+        + menu_3_basic_commands() : void
+        --
+        User Interface Functions:
+        1. Program from embedded data
+        2. Verify EEPROM contents
+        3. Program + Verify + Apply
+        4. Program from file
+        5. Verify from file  
+        6. Complete program/verify/reset
+    }
+    
+    note right of PMBusApp
+        High-level application interface
+        Menu-driven user interaction
+        File path validation
+        Error reporting and status
+    end note
+}
+
+package "NVM Management Layer" {
+    class NVM {
+        - addr : uint8_t*
+        - numAddrs : uint8_t
+        + NVM(pmbus : LT_PMBus*, smbusNoPec : LT_SMBusNoPec*, smbusPec : LT_SMBusPec*)
+        + programWithData(data : const char*) : bool
+        + verifyWithData(data : const char*) : bool  
+        + programWithFileData(path : const char*) : bool
+        + verifyWithFileData(path : const char*) : bool
+        --
+        Core Programming Interface:
+        - Embedded vs file data handling
+        - Success/failure reporting
+        - Resource management
+        - Global bus object access
+    }
+
+    note right of NVM
+        Main programming controller
+        Dual data source support
+        Hardware abstraction
+        Error propagation
+    end note
+}
+
+package "Hex File Processing Layer" {
+    class HexFileParser {
+        + filter_terminations(get_data : uint8_t(*)(void)) : uint8_t
+        + detect_colons(get_data : uint8_t(*)(void)) : uint8_t
+        + reset_parse_hex() : void
+        + parse_hex_block(in_data : char*, in_length : uint16_t, out_data : uint8_t*) : uint16_t
+        + parse_hex(get_data : uint8_t(*)(void)) : uint8_t
+        + parse_records(in_data : uint8_t*, in_length : uint16_t, out_records : tRecordHeaderLengthAndType**) : uint16_t
+        + parse_record(get_data : uint8_t(*)(void)) : pRecordHeaderLengthAndType
+        + print_record(get_data : pRecordHeaderLengthAndType(*)(void)) : pRecordHeaderLengthAndType
+        --
+        Intel HEX Format Support:
+        - Character stream filtering
+        - Colon detection and validation
+        - Binary record extraction
+        - Checksum verification
+        - Record type identification
+    }
+
+    note bottom of HexFileParser
+        **Streaming Architecture:**
+        • Function pointer pipeline
+        • Memory-efficient processing
+        • Real-time parsing capability
+        • Format validation
+    end note
+}
+
+package "Data Pipeline Functions" {
+    class DataPipeline {
+        {static} + get_hex_data() : uint8_t
+        {static} + get_filtered_hex_data() : uint8_t  
+        {static} + get_record_data() : uint8_t
+        {static} + get_record() : pRecordHeaderLengthAndType
+        {static} + readFileData(path : const char*) : char*
+        --
+        Global State Variables:
+        - icpData : const char*
+        - flashLocation : uint16_t
+        --
+        Streaming Pipeline Stages:
+        1. Character extraction
+        2. Termination filtering
+        3. Binary conversion
+        4. Record parsing
+    }
+
+    note right of DataPipeline
+        **Function Pointer Pipeline:**
+        Raw Data → Filtered → Binary → Records
+        Configurable data sources
+        Memory-efficient streaming
+    end note
+}
+
+package "Record Processing Engine" {
+    class RecordProcessor {
+        + processRecordsOnDemand(getRecord : pRecordHeaderLengthAndType(*)(void)) : uint8_t
+        + verifyRecordsOnDemand(getRecord : pRecordHeaderLengthAndType(*)(void)) : uint8_t
+        --
+        Record Type Handlers (22 types):
+        + recordProcessor___0x01___writeByteOptionalPEC() : uint8_t
+        + recordProcessor___0x02___writeWordOptionalPEC() : uint8_t  
+        + recordProcessor___0x09___bufferNVMData() : uint8_t
+        + recordProcessor___0x1E___writeNvmData() : uint8_t
+        + recordProcessor___0x1F___readThenVerifyNvmData() : uint8_t
+        + recordProcessor___0x22___endOfRecords() : uint8_t
+        --
+        Command Dispatch Pattern:
+        - Switch-based record routing
+        - Error propagation handling
+        - Sequential processing guarantee
+    }
+
+    note bottom of RecordProcessor
+        **Command Pattern Implementation:**
+        22 record types → PMBus operations
+        Atomic failure handling
+        Extensible dispatch system
+    end note
+}
+
+package "Record Type Definitions" {
+    abstract class RecordHeader {
+        + baseRecordHeader : tRecordHeaderLengthAndType
+        + detailedRecordHeader : tRecordHeaderAddressAndCommandWithOptionalPEC
+    }
+
+    class "t_RECORD_PMBUS_WRITE_BYTE" {
+        + baseRecordHeader : tRecordHeaderLengthAndType
+        + detailedRecordHeader : tRecordHeaderAddressAndCommandWithOptionalPEC
+        + dataByte : uint8_t
+        --
+        Record Type: 0x01
+        Basic register write operation
+    }
+
+    class "t_RECORD_PMBUS_WRITE_WORD" {
+        + baseRecordHeader : tRecordHeaderLengthAndType
+        + detailedRecordHeader : tRecordHeaderAddressAndCommandWithOptionalPEC  
+        + dataWord : uint16_t
+        --
+        Record Type: 0x02
+        16-bit register write operation
+    }
+
+    class "t_RECORD_NVM_DATA" {
+        + baseRecordHeader : tRecordHeaderLengthAndType
+        + detailedRecordHeader : tRecordHeaderAddressAndCommandWithOptionalPEC
+        --
+        Record Type: 0x09
+        EEPROM block programming
+        Uses linked list for data storage
+    }
+
+    class "t_RECORD_PMBUS_READ_BYTE_EXPECT" {
+        + baseRecordHeader : tRecordHeaderLengthAndType
+        + detailedRecordHeader : tRecordHeaderAddressAndCommandWithOptionalPEC
+        + expectedDataByte : uint8_t
+        --
+        Record Type: 0x04
+        Read and verify byte value
+    }
+
+    class "t_RECORD_DELAY_MS" {
+        + baseRecordHeader : tRecordHeaderLengthAndType
+        + delay : uint16_t
+        --
+        Record Type: 0x0D
+        Programmable timing control
+    }
+}
+
+package "NVM Data Management" {
+    class NVMDataHelpers {
+        + nvramListNew(dataIn : uint16_t, pecIn : uint8_t, addIn : uint8_t, cmdIn : uint8_t) : nvramNode_p
+        + nvramListAdd(dataIn : uint16_t, pecIn : uint8_t, addIn : uint8_t, cmdIn : uint8_t, nvramList : nvramNode_t*) : void
+        + bufferNvmData(pRecord : t_RECORD_NVM_DATA*) : uint8_t
+        + writeNvmData(pRecord : t_RECORD_NVM_DATA*) : uint8_t
+        + readThenVerifyNvmData(pRecord : t_RECORD_NVM_DATA*) : uint8_t
+        + releaseRecord() : void
+        --
+        Global State Management:
+        - nvramListTop : nvramNode_p
+        - words[] : uint16_t
+        - nWords : uint16_t
+        - nvram_somethingToVerify : uint8_t
+    }
+
+    struct nvramNode_t {
+        + data_store : uint16_t
+        + nvram_usePEC : uint8_t
+        + nvram_pmbusAddress : uint8_t  
+        + nvram_pmbusCommand : uint8_t
+        + next : struct _NVRAM_ListItem*
+        --
+        Linked List Node Structure:
+        - Dynamic memory allocation
+        - Device addressing support
+        - PEC mode configuration
+        - Sequential data organization
+    }
+
+    note right of nvramNode_t
+        **Linked List Architecture:**
+        • Dynamic memory allocation
+        • Variable-length data blocks
+        • Multi-device addressing
+        • Atomic write operations
+    end note
+}
+
+package "Hardware Interface Layer" {
+    class LT_PMBus {
+        - smbus_ : LT_SMBus*
+        + lockNVM(address : uint8_t) : bool
+        + unlockNVM(address : uint8_t) : bool
+        + eraseNVM(address : uint8_t) : void
+        + compareRamWithNvm(address : uint8_t) : bool
+        + waitForNotBusy(address : uint8_t) : void
+        + waitForNvmDone(address : uint8_t) : void
+        + resetGlobal() : void
+        + disableWriteProtectGlobal() : void
+        + restoreFromNvmGlobal() : void
+        --
+        EEPROM Management Commands:
+        - MFR_EE_UNLOCK (0x--) 
+        - MFR_EE_ERASE (0x--)
+        - MFR_COMPARE_USER_ALL (0x--)
+    }
+
+    interface LT_SMBusNoPec {
+        + readByte(address : uint8_t, command : uint8_t) : uint8_t
+        + readWord(address : uint8_t, command : uint8_t) : uint16_t
+        + writeByte(address : uint8_t, command : uint8_t, data : uint8_t) : void
+        + writeWord(address : uint8_t, command : uint8_t, data : uint16_t) : void
+    }
+
+    interface LT_SMBusPec {
+        + readByte(address : uint8_t, command : uint8_t) : uint8_t
+        + readWord(address : uint8_t, command : uint8_t) : uint16_t
+        + writeByte(address : uint8_t, command : uint8_t, data : uint8_t) : void
+        + writeWord(address : uint8_t, command : uint8_t, data : uint16_t) : void
+        + pecClear() : void
+    }
+
+    note bottom of LT_PMBus
+        **Hardware Abstraction:**
+        • EEPROM unlock/lock sequences
+        • Device busy state polling  
+        • Write protection management
+        • Global reset operations
+    end note
+}
+
+' Class relationships
+PMBusApp --> NVM : "creates/manages"
+NVM --> DataPipeline : "uses pipeline"
+NVM --> RecordProcessor : "processes records"
+DataPipeline --> HexFileParser : "parsing functions"
+RecordProcessor --> NVMDataHelpers : "NVM operations"
+RecordProcessor --> "t_RECORD_PMBUS_WRITE_BYTE" : "processes"
+RecordProcessor --> "t_RECORD_PMBUS_WRITE_WORD" : "processes"
+RecordProcessor --> "t_RECORD_NVM_DATA" : "processes"
+RecordProcessor --> "t_RECORD_PMBUS_READ_BYTE_EXPECT" : "processes"
+RecordProcessor --> "t_RECORD_DELAY_MS" : "processes"
+NVMDataHelpers --> nvramNode_t : "manages linked list"
+NVMDataHelpers --> LT_SMBusNoPec : "communication"
+NVMDataHelpers --> LT_SMBusPec : "communication"
+RecordProcessor --> LT_PMBus : "hardware access"
+
+' Inheritance
+RecordHeader <|-- "t_RECORD_PMBUS_WRITE_BYTE"
+RecordHeader <|-- "t_RECORD_PMBUS_WRITE_WORD"  
+RecordHeader <|-- "t_RECORD_NVM_DATA"
+RecordHeader <|-- "t_RECORD_PMBUS_READ_BYTE_EXPECT"
+RecordHeader <|-- "t_RECORD_DELAY_MS"
+
+' Global objects
+NVM --> LT_PMBus : "pmbus__"
+NVM --> LT_SMBusNoPec : "smbusNoPec__"
+NVM --> LT_SMBusPec : "smbusPec__"
+
+@enduml
+
+' Sequence diagram for programming flow
+@startuml Programming_Sequence
+!theme plain
+title EEPROM Programming Sequence Flow
+
+actor User
+participant PMBusApp  
+participant NVM
+participant DataPipeline
+participant HexFileParser
+participant RecordProcessor
+participant NVMDataHelpers
+participant LT_PMBus
+participant "PMBus Device" as Device
+
+User -> PMBusApp : program_nvm(path)
+activate PMBusApp
+
+PMBusApp -> NVM : new NVM(pmbus, smbusNoPec, smbusPec)
+activate NVM
+
+PMBusApp -> NVM : programWithFileData(path)
+NVM -> DataPipeline : readFileData(path)
+activate DataPipeline
+DataPipeline --> NVM : char* data
+deactivate DataPipeline
+
+NVM -> DataPipeline : reset_parse_hex()
+NVM -> RecordProcessor : processRecordsOnDemand(get_record)
+activate RecordProcessor
+
+loop for each record in hex file
+    RecordProcessor -> DataPipeline : get_record()
+    activate DataPipeline
+    DataPipeline -> HexFileParser : parse_record()
+    activate HexFileParser
+    HexFileParser -> DataPipeline : get_record_data()
+    DataPipeline -> HexFileParser : binary data
+    HexFileParser --> DataPipeline : pRecordHeaderLengthAndType
+    deactivate HexFileParser
+    DataPipeline --> RecordProcessor : record
+    deactivate DataPipeline
+    
+    alt Record Type 0x09 (NVM_DATA)
+        RecordProcessor -> NVMDataHelpers : bufferNvmData(record)
+        activate NVMDataHelpers
+        NVMDataHelpers -> NVMDataHelpers : build linked list
+        NVMDataHelpers --> RecordProcessor : success
+        deactivate NVMDataHelpers
+    else Record Type 0x1E (WRITE_NVM_DATA)  
+        RecordProcessor -> NVMDataHelpers : writeNvmData(record)
+        activate NVMDataHelpers
+        loop for each word in buffer
+            NVMDataHelpers -> LT_PMBus : writeWord(address, command, data)
+            activate LT_PMBus
+            LT_PMBus -> Device : SMBus Write
+            Device --> LT_PMBus : ACK
+            LT_PMBus -> Device : readByte(0xEF) [busy check]
+            Device --> LT_PMBus : status
+            LT_PMBus --> NVMDataHelpers : success
+            deactivate LT_PMBus
+        end
+        NVMDataHelpers --> RecordProcessor : success
+        deactivate NVMDataHelpers
+    else Other record types
+        RecordProcessor -> LT_PMBus : appropriate operation
+        LT_PMBus -> Device : SMBus operation
+        Device --> LT_PMBus : response
+        LT_PMBus --> RecordProcessor : success
+    end
+end
+
+RecordProcessor --> NVM : programming complete
+deactivate RecordProcessor
+
+NVM --> PMBusApp : success/failure
+deactivate NVM
+
+PMBusApp -> PMBusApp : wait_for_nvm() [4 seconds]
+PMBusApp -> User : "Programming Complete"
+deactivate PMBusApp
+
+@enduml

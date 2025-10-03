@@ -1,0 +1,58 @@
+#ifndef PMBUS_CONFIG_H
+#define PMBUS_CONFIG_H
+
+/* Version information */
+#define PMBUS_VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define PMBUS_VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define PMBUS_VERSION_PATCH @PROJECT_VERSION_PATCH@
+#define PMBUS_VERSION_STRING "@PROJECT_VERSION@"
+
+/* Build configuration */
+#cmakedefine PMBUS_ENABLE_LOGGING
+#cmakedefine PMBUS_ENABLE_STATISTICS
+#cmakedefine PMBUS_ENABLE_CACHING
+
+/* Platform detection */
+#cmakedefine PMBUS_PLATFORM_LINUX
+#cmakedefine PMBUS_PLATFORM_WINDOWS
+#cmakedefine PMBUS_PLATFORM_MACOS
+#cmakedefine PMBUS_PLATFORM_GENERIC
+
+/* Library configuration */
+#ifdef PMBUS_BUILDING_DLL
+  #ifdef PMBUS_PLATFORM_WINDOWS
+    #define PMBUS_API __declspec(dllexport)
+  #else
+    #define PMBUS_API __attribute__((visibility("default")))
+  #endif
+#else
+  #ifdef PMBUS_USING_DLL
+    #ifdef PMBUS_PLATFORM_WINDOWS
+      #define PMBUS_API __declspec(dllimport)
+    #else
+      #define PMBUS_API
+    #endif
+  #else
+    #define PMBUS_API
+  #endif
+#endif
+
+/* Compiler attributes */
+#ifdef __GNUC__
+  #define PMBUS_DEPRECATED __attribute__((deprecated))
+  #define PMBUS_UNUSED __attribute__((unused))
+  #define PMBUS_LIKELY(x) __builtin_expect(!!(x), 1)
+  #define PMBUS_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#elif defined(_MSC_VER)
+  #define PMBUS_DEPRECATED __declspec(deprecated)
+  #define PMBUS_UNUSED
+  #define PMBUS_LIKELY(x) (x)
+  #define PMBUS_UNLIKELY(x) (x)
+#else
+  #define PMBUS_DEPRECATED
+  #define PMBUS_UNUSED
+  #define PMBUS_LIKELY(x) (x)
+  #define PMBUS_UNLIKELY(x) (x)
+#endif
+
+#endif /* PMBUS_CONFIG_H */

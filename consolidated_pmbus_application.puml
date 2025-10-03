@@ -1,0 +1,675 @@
+@startuml PMBus_Application_Layer_Dual_Interface
+
+!define INTERFACE_COLOR #E1F5FE
+!define STRUCT_COLOR #F3E5F5
+!define ENUM_COLOR #E8F5E8
+!define IMPL_COLOR #FFF3E0
+!define UTIL_COLOR #F0F4C3
+!define APP_COLOR #FCE4EC
+!define LEGACY_COLOR #FFF3E0
+!define MODERN_COLOR #E8F5E8
+!define BRIDGE_COLOR #F3E5F5
+
+title PMBus Application Layer - Dual Interface
+
+package "Modern High-Level Interface" {
+
+    enum pmbus_application_type ENUM_COLOR {
+        PMBUS_APP_POWER_MANAGEMENT
+        PMBUS_APP_SYSTEM_MONITORING
+        PMBUS_APP_POWER_SEQUENCING
+        PMBUS_APP_FAULT_ANALYSIS
+        PMBUS_APP_CALIBRATION_TOOL
+        PMBUS_APP_PRODUCTION_TEST
+        PMBUS_APP_THERMAL_MANAGEMENT
+        PMBUS_APP_LOAD_BALANCING
+        PMBUS_APP_EFFICIENCY_OPTIMIZATION
+        PMBUS_APP_CUSTOM
+    }
+
+    enum pmbus_operation_mode ENUM_COLOR {
+        PMBUS_MODE_INTERACTIVE
+        PMBUS_MODE_AUTOMATED
+        PMBUS_MODE_SCRIPTED
+        PMBUS_MODE_REAL_TIME
+        PMBUS_MODE_BATCH
+        PMBUS_MODE_SIMULATION
+        PMBUS_MODE_DEVELOPMENT
+        PMBUS_MODE_PRODUCTION
+    }
+
+    struct pmbus_application_config STRUCT_COLOR {
+        +app_type: pmbus_application_type
+        +operation_mode: pmbus_operation_mode
+        +log_level: pmbus_log_level
+        +enable_auto_discovery: bool
+        +enable_telemetry_logging: bool
+        +telemetry_update_rate_ms: uint32_t
+        +enable_fault_monitoring: bool
+        +fault_response_timeout_ms: uint32_t
+        +enable_performance_monitoring: bool
+        +max_concurrent_operations: uint16_t
+        +command_timeout_ms: uint32_t
+        +retry_count: uint8_t
+        +enable_transaction_logging: bool
+        +log_file_path: char[256]
+        +config_file_path: char[256]
+        +enable_scripting: bool
+        +script_engine_type: pmbus_script_engine_type
+        +user_data_path: char[256]
+        +enable_gui: bool
+        +gui_update_rate_ms: uint32_t
+    }
+
+    interface pmbus_application INTERFACE_COLOR {
+        +initialize(config: pmbus_application_config*): int
+        +finalize(): int
+        +run(): int
+        +stop(): int
+        +pause(): int
+        +resume(): int
+        +get_status(): pmbus_application_status
+        +set_log_level(level: pmbus_log_level): int
+        +load_configuration(config_file: char*): int
+        +save_configuration(config_file: char*): int
+        +register_event_callback(callback: pmbus_event_callback): int
+        +unregister_event_callback(callback: pmbus_event_callback): int
+        +execute_command(command: pmbus_app_command*): int
+        +get_system_info(info: pmbus_system_info*): int
+        +export_data(format: pmbus_export_format, \n            filename: char*): int
+        +import_data(format: pmbus_import_format, \n            filename: char*): int
+    }
+
+    class pmbus_power_management_app MODERN_COLOR {
+        +app_base: pmbus_application_base
+        +system_manager: pmbus_system_manager*
+        +sequence_controller: pmbus_sequence_controller*
+        +load_balancer: pmbus_load_balancer*
+        +efficiency_optimizer: pmbus_efficiency_optimizer*
+        +thermal_manager: pmbus_thermal_manager*
+        +fault_manager: pmbus_fault_manager*
+        --
+        +initialize(config: pmbus_application_config*): int
+        +finalize(): int
+        +run(): int
+        +stop(): int
+        +discover_system(): int
+        +configure_power_rails(rails: pmbus_power_rail_config*, \n                       count: size_t): int
+        +start_power_sequencing(): int
+        +stop_power_sequencing(): int
+        +enable_load_balancing(rails: pmbus_power_rail*, \n                      count: size_t): int
+        +optimize_efficiency(): int
+        +monitor_thermal_conditions(): int
+        +handle_power_fault(fault: pmbus_power_fault*): int
+        +get_power_status(status: pmbus_power_system_status*): int
+        +set_power_limits(limits: pmbus_power_limits*): int
+        +read_power_telemetry(telemetry: pmbus_power_telemetry*): int
+        +generate_power_report(report: pmbus_power_report*): int
+        +calibrate_power_measurements(): int
+        +configure_protection_settings(protection: pmbus_protection_settings*): int
+        -initialize_power_subsystems(): int
+        -validate_system_configuration(): int
+        -setup_monitoring_tasks(): int
+    }
+
+    class pmbus_monitoring_app MODERN_COLOR {
+        +app_base: pmbus_application_base
+        +telemetry_collector: pmbus_telemetry_collector*
+        +data_logger: pmbus_data_logger*
+        +alert_manager: pmbus_alert_manager*
+        +dashboard: pmbus_dashboard*
+        +trend_analyzer: pmbus_trend_analyzer*
+        +notification_system: pmbus_notification_system*
+        --
+        +initialize(config: pmbus_application_config*): int
+        +finalize(): int
+        +run(): int
+        +stop(): int
+        +start_monitoring(devices: pmbus_device_base**, count: size_t): int
+        +stop_monitoring(): int
+        +configure_telemetry_collection(config: pmbus_telemetry_config*): int
+        +set_alert_thresholds(thresholds: pmbus_alert_thresholds*): int
+        +get_real_time_data(data: pmbus_real_time_data*): int
+        +get_historical_data(query: pmbus_data_query*, \n                    results: pmbus_data_results*): int
+        +generate_monitoring_report(report: pmbus_monitoring_report*): int
+        +export_telemetry_data(format: pmbus_export_format, \n                      filename: char*): int
+        +configure_dashboard(layout: pmbus_dashboard_layout*): int
+        +send_notification(notification: pmbus_notification*): int
+        +analyze_trends(analysis_config: pmbus_trend_analysis_config*): pmbus_trend_analysis_results*
+        +detect_anomalies(): pmbus_anomaly_detection_results*
+        -setup_data_collection_pipeline(): int
+        -initialize_alert_processing(): int
+        -configure_data_storage(): int
+    }
+
+    class pmbus_calibration_app MODERN_COLOR {
+        +app_base: pmbus_application_base
+        +calibration_engine: pmbus_calibration_engine*
+        +measurement_system: pmbus_measurement_system*
+        +reference_standards: pmbus_reference_standards*
+        +calibration_database: pmbus_calibration_database*
+        +report_generator: pmbus_report_generator*
+        --
+        +initialize(config: pmbus_application_config*): int
+        +finalize(): int
+        +run(): int
+        +stop(): int
+        +start_calibration_session(session: pmbus_calibration_session*): int
+        +end_calibration_session(): int
+        +calibrate_device(device: pmbus_device_base*, \n                 procedure: pmbus_calibration_procedure*): int
+        +validate_calibration(device: pmbus_device_base*): pmbus_calibration_results*
+        +store_calibration_data(data: pmbus_calibration_data*): int
+        +load_calibration_data(device_id: pmbus_device_identifier*): pmbus_calibration_data*
+        +generate_calibration_certificate(device: pmbus_device_base*): pmbus_calibration_certificate*
+        +verify_measurement_accuracy(device: pmbus_device_base*): pmbus_accuracy_report*
+        +configure_reference_standards(standards: pmbus_reference_config*): int
+        +perform_system_verification(): pmbus_system_verification_results*
+        +export_calibration_report(format: pmbus_export_format, \n                          filename: char*): int
+        +schedule_recalibration(device: pmbus_device_base*, \n                       schedule: pmbus_recalibration_schedule*): int
+        -setup_measurement_equipment(): int
+        -initialize_calibration_procedures(): int
+        -validate_reference_standards(): int
+    }
+
+    struct pmbus_application_base APP_COLOR {
+        +config: pmbus_application_config
+        +status: pmbus_application_status
+        +device_manager: pmbus_device_manager*
+        +event_dispatcher: pmbus_event_dispatcher*
+        +command_processor: pmbus_command_processor*
+        +logger: pmbus_logger*
+        +script_engine: pmbus_script_engine*
+        +user_interface: pmbus_user_interface*
+        +plugin_manager: pmbus_plugin_manager*
+        +resource_manager: pmbus_resource_manager*
+        +security_manager: pmbus_security_manager*
+        +statistics: pmbus_application_statistics
+        --
+        +base_initialize(config: pmbus_application_config*): int
+        +base_finalize(): int
+        +base_run(): int
+        +base_stop(): int
+        +get_base_status(): pmbus_application_status
+        +register_device(device: pmbus_device_base*): int
+        +unregister_device(device: pmbus_device_base*): int
+        +dispatch_event(event: pmbus_event*): int
+        +execute_script(script_file: char*): int
+        +load_plugin(plugin_file: char*): int
+        +unload_plugin(plugin_name: char*): int
+        +allocate_resource(resource_type: pmbus_resource_type, \n                  size: size_t): void*
+        +free_resource(resource: void*): int
+        +authenticate_user(credentials: pmbus_user_credentials*): bool
+        +authorize_operation(operation: pmbus_operation_type): bool
+        +log_message(level: pmbus_log_level, message: char*): int
+        +update_statistics(metric: pmbus_metric_type, value: int64_t): int
+    }
+
+}
+
+package "Legacy Compatibility Interface" {
+
+    class pmbus_legacy_lt_interface LEGACY_COLOR {
+        +modern_app: pmbus_application*
+        +device_registry: pmbus_device_registry*
+        +communication_layer: pmbus_legacy_comm*
+        +command_translator: pmbus_command_translator*
+        +data_converter: pmbus_legacy_data_converter*
+        --
+        +LT_PMBusInit(): int
+        +LT_PMBusShutdown(): int
+        +LT_PMBusDetectDevice(address: uint8_t): LT_PMBusDevice*
+        +LT_PMBusReadWord(device: LT_PMBusDevice*, \n                 command: uint8_t): uint16_t
+        +LT_PMBusWriteWord(device: LT_PMBusDevice*, \n                  command: uint8_t, data: uint16_t): int
+        +LT_PMBusReadBlock(device: LT_PMBusDevice*, \n                  command: uint8_t, data: uint8_t*, \n                  length: uint8_t*): int
+        +LT_PMBusWriteBlock(device: LT_PMBusDevice*, \n                   command: uint8_t, data: uint8_t*, \n                   length: uint8_t): int
+        +LT_PMBusReadTelemetry(device: LT_PMBusDevice*, \n                      telemetry: LT_PMBusTelemetry*): int
+        +LT_PMBusConfigureDevice(device: LT_PMBusDevice*, \n                        config: LT_PMBusConfig*): int
+        +LT_PMBusGetFaultLog(device: LT_PMBusDevice*, \n                    log: LT_FaultLog*): int
+        +LT_PMBusClearFaultLog(device: LT_PMBusDevice*): int
+        +LT_PMBusSetPage(device: LT_PMBusDevice*, page: uint8_t): int
+        +LT_PMBusGetPage(device: LT_PMBusDevice*): uint8_t
+        +LT_PMBusReset(device: LT_PMBusDevice*): int
+        +LT_PMBusStore(device: LT_PMBusDevice*): int
+        +LT_PMBusRestore(device: LT_PMBusDevice*): int
+        -translate_to_modern_api(legacy_cmd: uint8_t, \n                        legacy_data: void*): pmbus_command_context*
+        -translate_from_modern_api(modern_result: pmbus_command_result*, \n                          legacy_result: void*): int
+    }
+
+    class pmbus_legacy_noos_interface LEGACY_COLOR {
+        +modern_app: pmbus_application*
+        +iio_interface: pmbus_iio_interface*
+        +no_os_platform: no_os_platform_interface*
+        +attribute_mapper: pmbus_attribute_mapper*
+        --
+        +pmbus_init(init_param: pmbus_init_param*): pmbus_desc**
+        +pmbus_remove(desc: pmbus_desc*): int
+        +pmbus_read(desc: pmbus_desc*, reg: uint32_t, \n           val: uint32_t*): int
+        +pmbus_write(desc: pmbus_desc*, reg: uint32_t, \n            val: uint32_t): int
+        +pmbus_read_word(desc: pmbus_desc*, reg: uint8_t, \n                word: uint16_t*): int
+        +pmbus_write_word(desc: pmbus_desc*, reg: uint8_t, \n                 word: uint16_t): int
+        +pmbus_read_block_data(desc: pmbus_desc*, reg: uint8_t, \n                      data: uint8_t*, len: size_t): int
+        +pmbus_write_block_data(desc: pmbus_desc*, reg: uint8_t, \n                       data: uint8_t*, len: size_t): int
+        +pmbus_send_byte(desc: pmbus_desc*, byte_val: uint8_t): int
+        +pmbus_read_byte(desc: pmbus_desc*, byte_val: uint8_t*): int
+        +pmbus_set_page(desc: pmbus_desc*, page: uint8_t): int
+        +pmbus_get_page(desc: pmbus_desc*, page: uint8_t*): int
+        +iio_pmbus_create_device_descriptor(dev_descriptor: iio_device**, \n                                   init_param: pmbus_iio_init_param*): int
+        +iio_pmbus_read_attr(device: void*, buf: char*, \n                    len: uint32_t, channel: iio_ch_info*): int
+        +iio_pmbus_write_attr(device: void*, buf: char*, \n                     len: uint32_t, channel: iio_ch_info*): int
+        -map_noos_to_modern(noos_desc: pmbus_desc*): pmbus_device_base*
+        -map_modern_to_noos(modern_device: pmbus_device_base*): pmbus_desc*
+        -translate_iio_attributes(attr: iio_attribute*): pmbus_telemetry*
+    }
+
+    struct pmbus_legacy_device_mapping STRUCT_COLOR {
+        +legacy_device_ptr: void*
+        +modern_device: pmbus_device_base*
+        +device_type: pmbus_legacy_device_type
+        +translation_table: pmbus_command_translation*
+        +data_format_map: pmbus_data_format_mapping*
+        +capability_mask: uint32_t
+        +last_access_time: uint32_t
+        +access_count: uint32_t
+        +error_count: uint16_t
+        +compatibility_level: pmbus_compatibility_level
+    }
+
+    class pmbus_compatibility_bridge BRIDGE_COLOR {
+        +legacy_mappings: pmbus_legacy_device_mapping[PMBUS_MAX_LEGACY_DEVICES]
+        +mapping_count: size_t
+        +modern_app: pmbus_application*
+        +translation_engine: pmbus_translation_engine*
+        +compatibility_analyzer: pmbus_compatibility_analyzer*
+        +migration_assistant: pmbus_migration_assistant*
+        --
+        +initialize_bridge(modern_app: pmbus_application*): int
+        +finalize_bridge(): int
+        +register_legacy_device(legacy_ptr: void*, \n                       device_type: pmbus_legacy_device_type): int
+        +unregister_legacy_device(legacy_ptr: void*): int
+        +find_legacy_mapping(legacy_ptr: void*): pmbus_legacy_device_mapping*
+        +create_modern_equivalent(legacy_device: void*, \n                         device_type: pmbus_legacy_device_type): pmbus_device_base*
+        +translate_legacy_command(legacy_cmd: uint8_t, \n                         legacy_data: void*, \n                         modern_cmd: pmbus_command_context*): int
+        +translate_modern_response(modern_response: pmbus_command_result*, \n                          legacy_response: void*): int
+        +analyze_compatibility(legacy_device: void*): pmbus_compatibility_report*
+        +suggest_migration_path(legacy_device: void*): pmbus_migration_plan*
+        +validate_translation(legacy_cmd: uint8_t, \n                     legacy_data: void*, \n                     modern_result: pmbus_command_result*): bool
+        +get_bridge_statistics(): pmbus_bridge_statistics*
+        -setup_command_translation_tables(): int
+        -validate_data_format_compatibility(): int
+    }
+
+}
+
+package "Unified Application Framework" {
+
+    class pmbus_application_factory APP_COLOR {
+        +registered_apps: pmbus_application_descriptor[PMBUS_MAX_APP_TYPES]
+        +app_count: size_t
+        +default_config: pmbus_application_config
+        --
+        +register_application_type(descriptor: pmbus_application_descriptor*): int
+        +unregister_application_type(app_type: pmbus_application_type): int
+        +create_application(app_type: pmbus_application_type, \n                   config: pmbus_application_config*): pmbus_application*
+        +destroy_application(app: pmbus_application*): int
+        +get_available_applications(): pmbus_application_type*
+        +get_application_info(app_type: pmbus_application_type): pmbus_application_info*
+        +validate_application_config(config: pmbus_application_config*): int
+        +clone_application(source: pmbus_application*): pmbus_application*
+    }
+
+    struct pmbus_application_descriptor STRUCT_COLOR {
+        +app_type: pmbus_application_type
+        +name: char[64]
+        +description: char[256]
+        +version: char[16]
+        +author: char[64]
+        +required_capabilities: uint64_t
+        +supported_platforms: uint32_t
+        +memory_requirements: size_t
+        +cpu_requirements: uint32_t
+        +factory_function: pmbus_app_factory_func
+        +default_config: pmbus_application_config
+        +help_text: char[1024]
+    }
+
+    class pmbus_system_orchestrator UTIL_COLOR {
+        +active_applications: pmbus_application*[PMBUS_MAX_ACTIVE_APPS]
+        +app_count: size_t
+        +system_config: pmbus_system_config
+        +resource_allocator: pmbus_resource_allocator*
+        +inter_app_messenger: pmbus_inter_app_messenger*
+        +system_monitor: pmbus_system_monitor*
+        +security_controller: pmbus_security_controller*
+        --
+        +initialize_system(config: pmbus_system_config*): int
+        +shutdown_system(): int
+        +launch_application(app_type: pmbus_application_type, \n                   config: pmbus_application_config*): pmbus_application*
+        +terminate_application(app: pmbus_application*): int
+        +get_system_status(): pmbus_system_status*
+        +coordinate_applications(): int
+        +allocate_system_resources(app: pmbus_application*, \n                          requirements: pmbus_resource_requirements*): int
+        +deallocate_system_resources(app: pmbus_application*): int
+        +send_inter_app_message(from_app: pmbus_application*, \n                       to_app: pmbus_application*, \n                       message: pmbus_inter_app_message*): int
+        +monitor_system_health(): pmbus_system_health_status*
+        +handle_system_event(event: pmbus_system_event*): int
+        +backup_system_state(): int
+        +restore_system_state(): int
+        +get_system_statistics(): pmbus_system_statistics*
+        -validate_application_compatibility(): bool
+        -balance_resource_allocation(): int
+        -coordinate_shared_device_access(): int
+    }
+
+    struct pmbus_plugin_interface STRUCT_COLOR {
+        +plugin_name: char[64]
+        +plugin_version: char[16]
+        +plugin_type: pmbus_plugin_type
+        +supported_app_types: pmbus_application_type[PMBUS_MAX_SUPPORTED_APPS]
+        +init_func: pmbus_plugin_init_func
+        +finalize_func: pmbus_plugin_finalize_func
+        +execute_func: pmbus_plugin_execute_func
+        +config_func: pmbus_plugin_config_func
+        +info_func: pmbus_plugin_info_func
+        +capabilities: uint64_t
+        +memory_footprint: size_t
+        +api_version: uint32_t
+        +plugin_data: void*
+    }
+
+    class pmbus_plugin_manager UTIL_COLOR {
+        +loaded_plugins: pmbus_plugin_interface[PMBUS_MAX_PLUGINS]
+        +plugin_count: size_t
+        +plugin_directory: char[256]
+        +security_policy: pmbus_plugin_security_policy
+        --
+        +initialize_plugin_system(config: pmbus_plugin_config*): int
+        +finalize_plugin_system(): int
+        +load_plugin(plugin_file: char*): pmbus_plugin_interface*
+        +unload_plugin(plugin_name: char*): int
+        +get_plugin(plugin_name: char*): pmbus_plugin_interface*
+        +execute_plugin(plugin_name: char*, \n               params: pmbus_plugin_params*): pmbus_plugin_result*
+        +get_loaded_plugins(): pmbus_plugin_info*
+        +validate_plugin_security(plugin: pmbus_plugin_interface*): bool
+        +get_plugin_dependencies(plugin_name: char*): pmbus_plugin_dependency*
+        +resolve_plugin_conflicts(): int
+        +auto_discover_plugins(): int
+        +update_plugin(plugin_name: char*, \n              new_version: char*): int
+        -scan_plugin_directory(): int
+        -validate_plugin_api_compatibility(plugin: pmbus_plugin_interface*): bool
+        -enforce_security_sandbox(plugin: pmbus_plugin_interface*): int
+    }
+
+}
+
+package "Scripting and Automation" {
+
+    enum pmbus_script_type ENUM_COLOR {
+        PMBUS_SCRIPT_JAVASCRIPT
+        PMBUS_SCRIPT_PYTHON
+        PMBUS_SCRIPT_LUA
+        PMBUS_SCRIPT_SHELL
+        PMBUS_SCRIPT_PMBUS_NATIVE
+        PMBUS_SCRIPT_JSON_CONFIG
+        PMBUS_SCRIPT_YAML_CONFIG
+    }
+
+    class pmbus_script_engine UTIL_COLOR {
+        +script_type: pmbus_script_type
+        +runtime_engine: void*
+        +script_context: pmbus_script_context*
+        +api_bindings: pmbus_script_api_bindings*
+        +security_sandbox: pmbus_script_security_sandbox*
+        +execution_monitor: pmbus_script_execution_monitor*
+        --
+        +initialize_engine(script_type: pmbus_script_type): int
+        +finalize_engine(): int
+        +load_script(script_file: char*): pmbus_script_handle*
+        +unload_script(handle: pmbus_script_handle*): int
+        +execute_script(handle: pmbus_script_handle*, \n               params: pmbus_script_params*): pmbus_script_result*
+        +compile_script(source: char*): pmbus_compiled_script*
+        +validate_script_syntax(source: char*): pmbus_syntax_validation_result*
+        +set_script_timeout(timeout_ms: uint32_t): int
+        +abort_script_execution(handle: pmbus_script_handle*): int
+        +get_script_execution_status(handle: pmbus_script_handle*): pmbus_script_status*
+        +bind_pmbus_api(api_set: pmbus_script_api_set): int
+        +create_sandbox(security_level: pmbus_security_level): pmbus_script_security_sandbox*
+        +monitor_resource_usage(handle: pmbus_script_handle*): pmbus_resource_usage*
+        -setup_language_runtime(): int
+        -initialize_api_bindings(): int
+        -configure_security_policies(): int
+    }
+
+    struct pmbus_automation_sequence STRUCT_COLOR {
+        +sequence_id: uint32_t
+        +sequence_name: char[64]
+        +description: char[256]
+        +steps: pmbus_automation_step[PMBUS_MAX_SEQUENCE_STEPS]
+        +step_count: size_t
+        +execution_mode: pmbus_execution_mode
+        +loop_count: int32_t
+        +loop_delay_ms: uint32_t
+        +error_handling: pmbus_error_handling_policy
+        +rollback_on_failure: bool
+        +log_execution: bool
+        +timeout_ms: uint32_t
+        +prerequisites: pmbus_sequence_prerequisites
+        +postconditions: pmbus_sequence_postconditions
+        +metadata: pmbus_sequence_metadata
+    }
+
+    class pmbus_automation_engine UTIL_COLOR {
+        +registered_sequences: pmbus_automation_sequence[PMBUS_MAX_SEQUENCES]
+        +sequence_count: size_t
+        +execution_queue: pmbus_execution_queue*
+        +scheduler: pmbus_sequence_scheduler*
+        +condition_evaluator: pmbus_condition_evaluator*
+        +rollback_manager: pmbus_rollback_manager*
+        --
+        +initialize_automation(): int
+        +finalize_automation(): int
+        +register_sequence(sequence: pmbus_automation_sequence*): int
+        +unregister_sequence(sequence_id: uint32_t): int
+        +execute_sequence(sequence_id: uint32_t, \n                 params: pmbus_execution_params*): pmbus_execution_result*
+        +schedule_sequence(sequence_id: uint32_t, \n                  schedule: pmbus_execution_schedule*): int
+        +cancel_sequence_execution(execution_id: uint32_t): int
+        +pause_sequence_execution(execution_id: uint32_t): int
+        +resume_sequence_execution(execution_id: uint32_t): int
+        +get_execution_status(execution_id: uint32_t): pmbus_execution_status*
+        +rollback_sequence(execution_id: uint32_t): int
+        +validate_sequence(sequence: pmbus_automation_sequence*): pmbus_validation_result*
+        +import_sequence(sequence_file: char*): pmbus_automation_sequence*
+        +export_sequence(sequence_id: uint32_t, filename: char*): int
+        -execute_automation_step(step: pmbus_automation_step*): pmbus_step_result*
+        -evaluate_step_conditions(step: pmbus_automation_step*): bool
+        -handle_step_failure(step: pmbus_automation_step*, \n                    error: pmbus_step_error*): pmbus_recovery_action
+    }
+
+}
+
+package "User Interface Abstractions" {
+
+    enum pmbus_ui_type ENUM_COLOR {
+        PMBUS_UI_CONSOLE
+        PMBUS_UI_GUI_DESKTOP
+        PMBUS_UI_WEB_INTERFACE
+        PMBUS_UI_REST_API
+        PMBUS_UI_GRAPHICAL_DASHBOARD
+        PMBUS_UI_MOBILE_APP
+        PMBUS_UI_EMBEDDED_DISPLAY
+        PMBUS_UI_REMOTE_CONTROL
+    }
+
+    interface pmbus_user_interface INTERFACE_COLOR {
+        +initialize_ui(config: pmbus_ui_config*): int
+        +finalize_ui(): int
+        +display_message(message: pmbus_ui_message*): int
+        +get_user_input(prompt: pmbus_ui_prompt*): pmbus_user_input*
+        +update_display(data: pmbus_display_data*): int
+        +show_dialog(dialog: pmbus_ui_dialog*): pmbus_dialog_result*
+        +create_menu(menu_items: pmbus_menu_item*, count: size_t): pmbus_menu*
+        +handle_events(): int
+        +set_ui_theme(theme: pmbus_ui_theme*): int
+        +export_ui_state(state_file: char*): int
+        +import_ui_state(state_file: char*): int
+        +register_ui_callback(callback: pmbus_ui_callback): int
+        +unregister_ui_callback(callback: pmbus_ui_callback): int
+    }
+
+    class pmbus_console_interface IMPL_COLOR {
+        +ui_base: pmbus_user_interface
+        +console_config: pmbus_console_config
+        +command_history: pmbus_command_history*
+        +auto_completion: pmbus_auto_completion*
+        +color_scheme: pmbus_console_color_scheme*
+        --
+        +initialize_ui(config: pmbus_ui_config*): int
+        +finalize_ui(): int
+        +display_message(message: pmbus_ui_message*): int
+        +get_user_input(prompt: pmbus_ui_prompt*): pmbus_user_input*
+        +update_display(data: pmbus_display_data*): int
+        +show_progress_bar(progress: pmbus_progress_info*): int
+        +display_table(table: pmbus_table_data*): int
+        +display_graph(graph: pmbus_graph_data*): int
+        +set_console_title(title: char*): int
+        +clear_screen(): int
+        +set_cursor_position(x: int, y: int): int
+        +enable_color_output(enable: bool): int
+        -setup_terminal_settings(): int
+        -process_escape_sequences(input: char*): char*
+        -handle_special_keys(key_code: int): pmbus_key_action
+    }
+
+    class pmbus_web_interface IMPL_COLOR {
+        +ui_base: pmbus_user_interface
+        +web_server: pmbus_web_server*
+        +websocket_manager: pmbus_websocket_manager*
+        +rest_api: pmbus_rest_api*
+        +session_manager: pmbus_session_manager*
+        +template_engine: pmbus_template_engine*
+        --
+        +initialize_ui(config: pmbus_ui_config*): int
+        +finalize_ui(): int
+        +start_web_server(port: uint16_t): int
+        +stop_web_server(): int
+        +serve_dashboard(): int
+        +handle_rest_request(request: pmbus_http_request*): pmbus_http_response*
+        +broadcast_update(update: pmbus_realtime_update*): int
+        +authenticate_session(credentials: pmbus_web_credentials*): pmbus_session_token*
+        +invalidate_session(token: pmbus_session_token*): int
+        +generate_api_documentation(): char*
+        +export_dashboard_config(config_file: char*): int
+        +import_dashboard_config(config_file: char*): int
+        -process_http_request(request: pmbus_http_request*): pmbus_http_response*
+        -handle_websocket_message(message: pmbus_websocket_message*): int
+        -render_template(template_name: char*, \n                data: pmbus_template_data*): char*
+    }
+
+}
+
+' Relationships
+pmbus_application <|.. pmbus_power_management_app : implements
+pmbus_application <|.. pmbus_monitoring_app : implements
+pmbus_application <|.. pmbus_calibration_app : implements
+
+pmbus_power_management_app *-- pmbus_application_base : extends
+pmbus_monitoring_app *-- pmbus_application_base : extends
+pmbus_calibration_app *-- pmbus_application_base : extends
+
+pmbus_legacy_lt_interface --> pmbus_application : bridges to
+pmbus_legacy_noos_interface --> pmbus_application : bridges to
+pmbus_compatibility_bridge --> pmbus_translation_engine : uses
+pmbus_compatibility_bridge *-- pmbus_legacy_device_mapping : manages
+
+pmbus_application_factory --> pmbus_application : creates
+pmbus_system_orchestrator --> pmbus_application : manages
+pmbus_system_orchestrator --> pmbus_plugin_manager : coordinates with
+
+pmbus_script_engine --> pmbus_automation_engine : powers
+pmbus_automation_engine --> pmbus_automation_sequence : executes
+
+pmbus_user_interface <|.. pmbus_console_interface : implements  
+pmbus_user_interface <|.. pmbus_web_interface : implements
+pmbus_application_base --> pmbus_user_interface : uses
+
+pmbus_application_base --> pmbus_script_engine : integrates
+pmbus_application_base --> pmbus_plugin_manager : uses
+pmbus_application_base --> pmbus_device_manager : manages devices through
+
+note top of pmbus_application
+    **Modern Application Interface**
+    - High-level PMBus application framework
+    - Event-driven architecture with callbacks
+    - Comprehensive configuration management
+    - Built-in logging and data export capabilities
+    - Plugin system for extensibility
+    - Multi-modal user interface support
+end note
+
+note top of pmbus_power_management_app
+    **Power Management Application**
+    - Complete power system management
+    - Automated power sequencing and control
+    - Load balancing and efficiency optimization  
+    - Thermal management and fault handling
+    - Real-time telemetry and reporting
+    - Protection settings and calibration
+end note
+
+note top of pmbus_legacy_lt_interface
+    **Linear Technology Compatibility**
+    - Complete API compatibility with existing LT code
+    - Transparent command translation to modern framework
+    - Preserves existing fault logging interfaces
+    - Maintains device detection and configuration APIs
+    - Zero-change migration for existing applications
+end note
+
+note top of pmbus_compatibility_bridge
+    **Legacy Integration Bridge**
+    - Universal translation layer for legacy APIs
+    - Automatic compatibility analysis
+    - Migration assistance and path planning
+    - Performance monitoring and statistics
+    - Validation of translation accuracy
+end note
+
+note top of pmbus_system_orchestrator
+    **System-Level Coordination**
+    - Multi-application resource management
+    - Inter-application communication
+    - System-wide monitoring and health tracking
+    - Security and access control
+    - State backup and restoration
+    - Application lifecycle coordination
+end note
+
+note top of pmbus_script_engine
+    **Automation and Scripting**
+    - Multi-language script execution support
+    - Comprehensive PMBus API bindings
+    - Security sandboxing and resource monitoring
+    - Script compilation and validation
+    - Execution timeout and abort capabilities
+end note
+
+note top of pmbus_web_interface
+    **Web-Based Interface**
+    - Full-featured web dashboard
+    - REST API for remote integration
+    - Real-time updates via WebSocket
+    - Session management and authentication
+    - Template-based UI generation
+    - Mobile-responsive design support
+end note
+
+note bottom of pmbus_automation_engine
+    **Process Automation**
+    - Complex sequence definition and execution
+    - Conditional logic and error handling
+    - Scheduling and queue management
+    - Rollback capabilities on failure
+    - Import/export of automation sequences
+    - Prerequisite and postcondition validation
+end note
+
+@enduml

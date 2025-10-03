@@ -1,0 +1,503 @@
+@startuml PMBus_Transport_Abstraction_Layer
+
+!define INTERFACE_COLOR #E1F5FE
+!define STRUCT_COLOR #F3E5F5
+!define ENUM_COLOR #E8F5E8
+!define IMPL_COLOR #FFF3E0
+!define UTIL_COLOR #F0F4C3
+
+title PMBus Transport Abstraction Layer - Consolidated Architecture
+
+package "Transport Abstraction Layer" {
+
+    enum pmbus_transport_mode ENUM_COLOR {
+        PMBUS_TRANSPORT_STANDARD
+        PMBUS_TRANSPORT_FAST
+        PMBUS_TRANSPORT_FAST_PLUS
+        PMBUS_TRANSPORT_HIGH_SPEED
+        PMBUS_TRANSPORT_ULTRA_FAST
+    }
+
+    enum pmbus_pec_mode ENUM_COLOR {
+        PMBUS_PEC_DISABLED
+        PMBUS_PEC_ENABLED
+        PMBUS_PEC_AUTO_DETECT
+        PMBUS_PEC_HARDWARE
+        PMBUS_PEC_SOFTWARE
+    }
+
+    enum pmbus_transaction_type ENUM_COLOR {
+        PMBUS_TXN_SEND_BYTE
+        PMBUS_TXN_RECEIVE_BYTE
+        PMBUS_TXN_WRITE_BYTE
+        PMBUS_TXN_WRITE_WORD
+        PMBUS_TXN_WRITE_BLOCK
+        PMBUS_TXN_READ_BYTE
+        PMBUS_TXN_READ_WORD
+        PMBUS_TXN_READ_BLOCK
+        PMBUS_TXN_PROCESS_CALL
+        PMBUS_TXN_BLOCK_PROCESS_CALL
+        PMBUS_TXN_GROUP_COMMAND
+    }
+
+    enum pmbus_alert_policy ENUM_COLOR {
+        PMBUS_ALERT_IGNORE
+        PMBUS_ALERT_LOG
+        PMBUS_ALERT_CALLBACK
+        PMBUS_ALERT_ARA_QUERY
+        PMBUS_ALERT_INTERRUPT
+    }
+
+    struct pmbus_transport_config STRUCT_COLOR {
+        +bus_speed_hz: uint32_t
+        +timeout_ms: uint32_t
+        +retry_count: uint8_t
+        +retry_delay_ms: uint16_t
+        +pec_mode: pmbus_pec_mode
+        +clock_stretch_timeout_us: uint32_t
+        +inter_command_delay_us: uint16_t
+        +alert_policy: pmbus_alert_policy
+        +enable_smbus_arp: bool
+        +enable_host_notify: bool
+        +max_block_size: uint8_t
+        +address_resolution_protocol: bool
+        +enable_10bit_addressing: bool
+        +bus_arbitration_timeout_us: uint32_t
+    }
+
+    struct pmbus_transport_stats STRUCT_COLOR {
+        +total_transactions: uint64_t
+        +successful_transactions: uint64_t
+        +failed_transactions: uint64_t
+        +retry_attempts: uint64_t
+        +timeout_errors: uint32_t
+        +pec_errors: uint32_t
+        +bus_errors: uint32_t
+        +arbitration_lost: uint32_t
+        +nack_errors: uint32_t
+        +alert_count: uint32_t
+        +group_transactions: uint32_t
+        +total_bytes_sent: uint64_t
+        +total_bytes_received: uint64_t
+        +min_transaction_time_us: uint32_t
+        +max_transaction_time_us: uint32_t
+        +avg_transaction_time_us: uint32_t
+        +last_error_timestamp: uint32_t
+        +last_error_code: int
+        +uptime_ms: uint32_t
+    }
+
+    struct pmbus_transport_capabilities STRUCT_COLOR {
+        +supports_pec: bool
+        +supports_group_commands: bool
+        +supports_block_transfers: bool
+        +supports_process_calls: bool
+        +supports_host_notify: bool
+        +supports_smbus_arp: bool
+        +supports_10bit_addressing: bool
+        +supports_clock_stretching: bool
+        +supports_multi_master: bool
+        +max_bus_speed_hz: uint32_t
+        +max_block_size: uint8_t
+        +min_address: uint8_t
+        +max_address: uint8_t
+        +address_mask: uint8_t
+    }
+
+    interface pmbus_transport_ops INTERFACE_COLOR {
+        +send_byte(transport: pmbus_transport*, addr: uint8_t, cmd: uint8_t): int
+        +receive_byte(transport: pmbus_transport*, addr: uint8_t): int
+        +write_byte(transport: pmbus_transport*, addr: uint8_t, \n           cmd: uint8_t, data: uint8_t): int
+        +write_word(transport: pmbus_transport*, addr: uint8_t, \n           cmd: uint8_t, data: uint16_t): int
+        +write_block(transport: pmbus_transport*, addr: uint8_t, \n            cmd: uint8_t, data: uint8_t*, len: uint8_t): int
+        +read_byte(transport: pmbus_transport*, addr: uint8_t, \n          cmd: uint8_t, data: uint8_t*): int
+        +read_word(transport: pmbus_transport*, addr: uint8_t, \n          cmd: uint8_t, data: uint16_t*): int
+        +read_block(transport: pmbus_transport*, addr: uint8_t, \n           cmd: uint8_t, data: uint8_t*, len: uint8_t*): int
+        +process_call(transport: pmbus_transport*, addr: uint8_t, \n             cmd: uint8_t, send_data: uint16_t, \n             recv_data: uint16_t*): int
+        +block_process_call(transport: pmbus_transport*, addr: uint8_t, \n                   cmd: uint8_t, send_data: uint8_t*, \n                   send_len: uint8_t, recv_data: uint8_t*, \n                   recv_len: uint8_t*): int
+        +begin_group(transport: pmbus_transport*): int
+        +add_group_command(transport: pmbus_transport*, addr: uint8_t, \n                  cmd: uint8_t, data: uint8_t*, len: uint8_t): int
+        +execute_group(transport: pmbus_transport*): int
+        +abort_group(transport: pmbus_transport*): int
+        +query_alert(transport: pmbus_transport*, \n            alert_addresses: uint8_t*, max_count: uint8_t): int
+        +enable_alert(transport: pmbus_transport*, \n             callback: pmbus_alert_callback, \n             user_data: void*): int
+        +disable_alert(transport: pmbus_transport*): int
+        +reset_bus(transport: pmbus_transport*): int
+        +scan_bus(transport: pmbus_transport*, \n         addresses: uint8_t*, max_count: uint8_t): int
+        +set_speed(transport: pmbus_transport*, speed_hz: uint32_t): int
+        +get_capabilities(transport: pmbus_transport*, \n                 caps: pmbus_transport_capabilities*): int
+    }
+
+    struct pmbus_transport STRUCT_COLOR {
+        +hw: pmbus_hw_desc*
+        +ops: pmbus_transport_ops*
+        +config: pmbus_transport_config
+        +stats: pmbus_transport_stats
+        +capabilities: pmbus_transport_capabilities
+        +current_mode: pmbus_transport_mode
+        +group_active: bool
+        +group_commands: pmbus_group_command[PMBUS_MAX_GROUP_COMMANDS]
+        +group_command_count: uint8_t
+        +alert_callback: pmbus_alert_callback
+        +alert_user_data: void*
+        +lock: pmbus_transport_lock
+        +pec_table: uint8_t[256]
+        +transaction_queue: pmbus_transaction_queue*
+        +error_recovery: pmbus_error_recovery_config
+        +debug_enabled: bool
+        +debug_callback: pmbus_debug_callback
+        +private_data: void*
+    }
+
+    struct pmbus_group_command STRUCT_COLOR {
+        +address: uint8_t
+        +command: uint8_t
+        +data: uint8_t[PMBUS_MAX_BLOCK_SIZE]
+        +data_length: uint8_t
+        +transaction_type: pmbus_transaction_type
+        +completed: bool
+        +result: int
+    }
+
+    struct pmbus_transport_lock STRUCT_COLOR {
+        +mutex: void*
+        +owner_thread_id: uint32_t
+        +lock_count: int
+        +recursive: bool
+        +timeout_ms: uint32_t
+        +wait_queue: pmbus_wait_queue*
+    }
+
+    struct pmbus_error_recovery_config STRUCT_COLOR {
+        +enable_auto_recovery: bool
+        +max_consecutive_errors: uint8_t
+        +recovery_delay_ms: uint16_t
+        +bus_reset_threshold: uint8_t
+        +enable_error_logging: bool
+        +error_callback: pmbus_error_callback
+        +recovery_strategies: uint32_t
+    }
+
+}
+
+package "Transaction Management" {
+
+    struct pmbus_transaction STRUCT_COLOR {
+        +transaction_id: uint32_t
+        +timestamp_start: uint32_t
+        +timestamp_end: uint32_t
+        +type: pmbus_transaction_type
+        +address: uint8_t
+        +command: uint8_t
+        +send_data: uint8_t[PMBUS_MAX_BLOCK_SIZE]
+        +send_length: uint8_t
+        +recv_data: uint8_t[PMBUS_MAX_BLOCK_SIZE]
+        +recv_length: uint8_t
+        +expected_recv_length: uint8_t
+        +pec_enabled: bool
+        +calculated_pec: uint8_t
+        +received_pec: uint8_t
+        +retry_count: uint8_t
+        +priority: pmbus_transaction_priority
+        +status: pmbus_transaction_status
+        +error_code: int
+        +completion_callback: pmbus_transaction_callback
+        +user_data: void*
+    }
+
+    enum pmbus_transaction_priority ENUM_COLOR {
+        PMBUS_PRIORITY_LOW
+        PMBUS_PRIORITY_NORMAL
+        PMBUS_PRIORITY_HIGH
+        PMBUS_PRIORITY_CRITICAL
+        PMBUS_PRIORITY_EMERGENCY
+    }
+
+    enum pmbus_transaction_status ENUM_COLOR {
+        PMBUS_TXN_PENDING
+        PMBUS_TXN_IN_PROGRESS
+        PMBUS_TXN_COMPLETED
+        PMBUS_TXN_FAILED
+        PMBUS_TXN_TIMEOUT
+        PMBUS_TXN_CANCELLED
+        PMBUS_TXN_RETRY
+    }
+
+    class pmbus_transaction_queue UTIL_COLOR {
+        +transactions: pmbus_transaction[PMBUS_MAX_QUEUE_SIZE]
+        +head: uint16_t
+        +tail: uint16_t
+        +count: uint16_t
+        +max_size: uint16_t
+        +priority_queues: pmbus_priority_queue[PMBUS_PRIORITY_LEVELS]
+        +queue_lock: pmbus_transport_lock
+        --
+        +enqueue(transaction: pmbus_transaction*): int
+        +dequeue(transaction: pmbus_transaction*): int
+        +peek(transaction: pmbus_transaction*): int
+        +remove(transaction_id: uint32_t): int
+        +clear(): int
+        +is_empty(): bool
+        +is_full(): bool
+        +get_count(): uint16_t
+        +get_priority_count(priority: pmbus_transaction_priority): uint16_t
+    }
+
+    class pmbus_transaction_scheduler UTIL_COLOR {
+        +current_transaction: pmbus_transaction*
+        +scheduler_thread: void*
+        +scheduling_policy: pmbus_scheduling_policy
+        +quantum_ms: uint16_t
+        +preemption_enabled: bool
+        --
+        +start_scheduler(): int
+        +stop_scheduler(): int
+        +schedule_transaction(transaction: pmbus_transaction*): int
+        +cancel_transaction(transaction_id: uint32_t): int
+        +set_scheduling_policy(policy: pmbus_scheduling_policy): int
+        +get_queue_status(status: pmbus_queue_status*): int
+    }
+
+    enum pmbus_scheduling_policy ENUM_COLOR {
+        PMBUS_SCHED_FIFO
+        PMBUS_SCHED_PRIORITY
+        PMBUS_SCHED_ROUND_ROBIN
+        PMBUS_SCHED_WEIGHTED_FAIR
+        PMBUS_SCHED_EARLIEST_DEADLINE
+    }
+
+}
+
+package "PEC and Error Handling" {
+
+    class pmbus_pec_engine UTIL_COLOR {
+        +crc_table: uint8_t[256]
+        +polynomial: uint8_t
+        +initial_value: uint8_t
+        +final_xor: uint8_t
+        +reflect_input: bool
+        +reflect_output: bool
+        --
+        +init_table(): void
+        +calculate_pec(data: uint8_t*, length: size_t): uint8_t
+        +verify_pec(data: uint8_t*, length: size_t, expected_pec: uint8_t): bool
+        +append_pec(data: uint8_t*, length: size_t*): void
+        +strip_pec(data: uint8_t*, length: size_t*, pec: uint8_t*): bool
+    }
+
+    class pmbus_error_handler UTIL_COLOR {
+        +error_history: pmbus_error_record[PMBUS_MAX_ERROR_HISTORY]
+        +history_count: uint16_t
+        +current_error_level: pmbus_error_level
+        +recovery_in_progress: bool
+        --
+        +handle_error(error: pmbus_error_info*): int
+        +recover_from_error(error_code: int): int
+        +log_error(error: pmbus_error_info*): void
+        +get_error_statistics(stats: pmbus_error_stats*): int
+        +clear_error_history(): void
+        +set_error_threshold(level: pmbus_error_level, threshold: uint16_t): int
+    }
+
+    struct pmbus_error_info STRUCT_COLOR {
+        +error_code: int
+        +error_level: pmbus_error_level
+        +timestamp: uint32_t
+        +transaction_id: uint32_t
+        +device_address: uint8_t
+        +command: uint8_t
+        +context: char[64]
+        +recovery_attempted: bool
+        +recovery_successful: bool
+    }
+
+    enum pmbus_error_level ENUM_COLOR {
+        PMBUS_ERROR_INFO
+        PMBUS_ERROR_WARNING
+        PMBUS_ERROR_ERROR
+        PMBUS_ERROR_CRITICAL
+        PMBUS_ERROR_FATAL
+    }
+
+}
+
+package "Alert and Notification System" {
+
+    class pmbus_alert_manager UTIL_COLOR {
+        +alert_sources: pmbus_alert_source[PMBUS_MAX_ALERT_SOURCES]
+        +alert_count: uint8_t
+        +ara_enabled: bool
+        +alert_thread: void*
+        +alert_queue: pmbus_alert_queue*
+        --
+        +register_alert_source(address: uint8_t, \n                      callback: pmbus_alert_callback): int
+        +unregister_alert_source(address: uint8_t): int
+        +process_alert(): int
+        +query_alert_response(): int
+        +start_alert_monitoring(): int
+        +stop_alert_monitoring(): int
+        +get_alert_status(status: pmbus_alert_status*): int
+    }
+
+    struct pmbus_alert_source STRUCT_COLOR {
+        +device_address: uint8_t
+        +alert_mask: uint16_t
+        +callback: pmbus_alert_callback
+        +user_data: void*
+        +alert_count: uint32_t
+        +last_alert_time: uint32_t
+        +enabled: bool
+    }
+
+    struct pmbus_alert_event STRUCT_COLOR {
+        +source_address: uint8_t
+        +alert_type: uint16_t
+        +timestamp: uint32_t
+        +status_word: uint16_t
+        +additional_data: uint8_t[16]
+        +severity: pmbus_alert_severity
+        +acknowledged: bool
+    }
+
+    enum pmbus_alert_severity ENUM_COLOR {
+        PMBUS_ALERT_INFO
+        PMBUS_ALERT_WARNING
+        PMBUS_ALERT_CRITICAL
+        PMBUS_ALERT_EMERGENCY
+    }
+
+}
+
+package "Transport Implementations" {
+
+    class pmbus_transport_standard IMPL_COLOR {
+        --
+        +create(hw: pmbus_hw_desc*, config: pmbus_transport_config*): pmbus_transport*
+        +destroy(transport: pmbus_transport*): int
+        -execute_transaction(transport: pmbus_transport*, \n                    transaction: pmbus_transaction*): int
+        -handle_retry(transport: pmbus_transport*, \n                     transaction: pmbus_transaction*): int
+        -validate_pec(transport: pmbus_transport*, \n                     data: uint8_t*, length: uint8_t, \n                     expected_pec: uint8_t): bool
+    }
+
+    class pmbus_transport_optimized IMPL_COLOR {
+        +dma_channel: void*
+        +interrupt_driven: bool
+        +batch_buffer: uint8_t[PMBUS_BATCH_BUFFER_SIZE]
+        --
+        +create(hw: pmbus_hw_desc*, config: pmbus_transport_config*): pmbus_transport*
+        +destroy(transport: pmbus_transport*): int
+        -setup_dma_transfer(transport: pmbus_transport*, \n                   transaction: pmbus_transaction*): int
+        -handle_interrupt(transport: pmbus_transport*): void
+        -optimize_transaction_sequence(transactions: pmbus_transaction*, \n                              count: uint8_t): int
+    }
+
+    class pmbus_transport_debug IMPL_COLOR {
+        +trace_buffer: pmbus_trace_record[PMBUS_MAX_TRACE_RECORDS]
+        +trace_count: uint16_t
+        +trace_enabled: bool
+        +protocol_analyzer: pmbus_protocol_analyzer*
+        --
+        +create(hw: pmbus_hw_desc*, config: pmbus_transport_config*): pmbus_transport*
+        +destroy(transport: pmbus_transport*): int
+        +enable_tracing(enable: bool): int
+        +dump_trace(output: FILE*): int
+        +analyze_protocol_compliance(report: pmbus_compliance_report*): int
+        -trace_transaction(transaction: pmbus_transaction*): void
+    }
+
+}
+
+' Relationships
+pmbus_transport *-- pmbus_transport_config
+pmbus_transport *-- pmbus_transport_stats
+pmbus_transport *-- pmbus_transport_capabilities
+pmbus_transport *-- pmbus_transport_lock
+pmbus_transport *-- pmbus_group_command
+pmbus_transport *-- pmbus_error_recovery_config
+pmbus_transport --> pmbus_hw_desc : uses
+
+pmbus_transport_ops <|.. pmbus_transport_standard : implements
+pmbus_transport_ops <|.. pmbus_transport_optimized : implements
+pmbus_transport_ops <|.. pmbus_transport_debug : implements
+
+pmbus_transport --> pmbus_transport_ops : uses
+
+pmbus_transaction_queue *-- pmbus_transaction
+pmbus_transaction_scheduler --> pmbus_transaction_queue : manages
+pmbus_transaction --> pmbus_transaction_type
+pmbus_transaction --> pmbus_transaction_priority
+pmbus_transaction --> pmbus_transaction_status
+
+pmbus_pec_engine ..> pmbus_transport : used by
+pmbus_error_handler ..> pmbus_transport : used by
+pmbus_alert_manager ..> pmbus_transport : used by
+
+pmbus_alert_manager *-- pmbus_alert_source
+pmbus_alert_source --> pmbus_alert_event : generates
+pmbus_error_handler *-- pmbus_error_info
+
+note top of pmbus_transport
+    **Core Transport Layer**
+    - Abstracts SMBus/PMBus protocol details
+    - Provides unified interface for all transaction types
+    - Handles PEC calculation and verification
+    - Supports group commands and batch operations
+    - Thread-safe with advanced locking mechanisms
+    - Comprehensive error handling and recovery
+end note
+
+note top of pmbus_transaction_queue
+    **Transaction Management**
+    - Priority-based transaction scheduling
+    - Queue management with overflow protection
+    - Support for different scheduling policies
+    - Preemptive and cooperative scheduling
+    - Transaction lifecycle management
+end note
+
+note top of pmbus_pec_engine
+    **PEC Support**
+    - Hardware and software PEC calculation
+    - Configurable CRC polynomials
+    - Automatic PEC append/strip operations
+    - Error detection and correction
+    - Performance optimized lookup tables
+end note
+
+note top of pmbus_alert_manager
+    **Alert Handling**
+    - SMBus Alert Response Address (ARA) support
+    - Multiple alert source management
+    - Asynchronous alert processing
+    - Configurable alert policies
+    - Alert event logging and analysis
+end note
+
+note bottom of pmbus_transport_standard
+    **Standard Implementation**
+    - Basic PMBus protocol compliance
+    - Software-based PEC calculation
+    - Polling-based operations
+    - Suitable for most applications
+    - Low resource requirements
+end note
+
+note bottom of pmbus_transport_optimized
+    **Optimized Implementation**
+    - DMA-based bulk transfers
+    - Interrupt-driven operations
+    - Batch transaction optimization
+    - Hardware PEC acceleration
+    - High-performance applications
+end note
+
+note bottom of pmbus_transport_debug
+    **Debug Implementation**
+    - Complete transaction tracing
+    - Protocol compliance analysis
+    - Performance profiling
+    - Error injection capabilities
+    - Development and validation support
+end note
+
+@enduml

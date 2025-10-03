@@ -1,0 +1,343 @@
+@startuml Enhanced_PMBus_Hardware_Abstraction_Layer
+
+!define INTERFACE_COLOR #E1F5FE
+!define STRUCT_COLOR #F3E5F5
+!define ENUM_COLOR #E8F5E8
+!define IMPL_COLOR #FFF3E0
+
+title Enhanced PMBus Hardware Abstraction Layer (HAL) - Consolidated Architecture
+
+package "Hardware Abstraction Layer" {
+
+    enum pmbus_gpio_type ENUM_COLOR {
+        PMBUS_GPIO_ALERT
+        PMBUS_GPIO_PGOOD
+        PMBUS_GPIO_RUN
+        PMBUS_GPIO_FAULT
+        PMBUS_GPIO_RESET
+        PMBUS_GPIO_ENABLE
+        PMBUS_GPIO_CTRL0
+        PMBUS_GPIO_CTRL1
+        PMBUS_GPIO_SYNC
+        PMBUS_GPIO_SHARE_CLK
+    }
+
+    enum pmbus_power_state ENUM_COLOR {
+        PMBUS_POWER_STATE_ON
+        PMBUS_POWER_STATE_OFF
+        PMBUS_POWER_STATE_STANDBY
+        PMBUS_POWER_STATE_SLEEP
+        PMBUS_POWER_STATE_HIBERNATE
+        PMBUS_POWER_STATE_RESET
+    }
+
+    enum pmbus_hw_capability_flags ENUM_COLOR {
+        PMBUS_HW_CAP_I2C_STANDARD    = 0x0001
+        PMBUS_HW_CAP_I2C_FAST        = 0x0002
+        PMBUS_HW_CAP_I2C_FAST_PLUS   = 0x0004
+        PMBUS_HW_CAP_I2C_HIGH_SPEED  = 0x0008
+        PMBUS_HW_CAP_CLOCK_STRETCH   = 0x0010
+        PMBUS_HW_CAP_MULTI_MASTER    = 0x0020
+        PMBUS_HW_CAP_PEC_HARDWARE    = 0x0040
+        PMBUS_HW_CAP_GPIO_INTERRUPT  = 0x0080
+        PMBUS_HW_CAP_DMA_SUPPORT     = 0x0100
+        PMBUS_HW_CAP_POWER_MGMT      = 0x0200
+        PMBUS_HW_CAP_TEMPERATURE     = 0x0400
+        PMBUS_HW_CAP_VOLTAGE_MONITOR = 0x0800
+    }
+
+    interface pmbus_hw_interface INTERFACE_COLOR {
+        +i2c_write(hw: pmbus_hw_desc*, addr: uint8_t, data: uint8_t*, len: size_t): int
+        +i2c_read(hw: pmbus_hw_desc*, addr: uint8_t, data: uint8_t*, len: size_t): int
+        +i2c_write_read(hw: pmbus_hw_desc*, addr: uint8_t, \n                write_data: uint8_t*, write_len: size_t, \n                read_data: uint8_t*, read_len: size_t): int
+        +gpio_set(hw: pmbus_hw_desc*, type: pmbus_gpio_type, value: uint8_t): int
+        +gpio_get(hw: pmbus_hw_desc*, type: pmbus_gpio_type, value: uint8_t*): int
+        +gpio_set_direction(hw: pmbus_hw_desc*, type: pmbus_gpio_type, \n                   is_output: bool): int
+        +gpio_enable_interrupt(hw: pmbus_hw_desc*, type: pmbus_gpio_type, \n                      callback: pmbus_gpio_callback, \n                      user_data: void*): int
+        +delay_us(microseconds: uint32_t): int
+        +delay_ms(milliseconds: uint32_t): int
+        +get_time_us(): uint32_t
+        +get_time_ms(): uint32_t
+        +set_power_state(hw: pmbus_hw_desc*, state: pmbus_power_state): int
+        +get_power_state(hw: pmbus_hw_desc*, state: pmbus_power_state*): int
+        +set_bus_speed(hw: pmbus_hw_desc*, speed_hz: uint32_t): int
+        +get_bus_speed(hw: pmbus_hw_desc*, speed_hz: uint32_t*): int
+        +reset_bus(hw: pmbus_hw_desc*): int
+        +lock_bus(hw: pmbus_hw_desc*, timeout_ms: uint32_t): int
+        +unlock_bus(hw: pmbus_hw_desc*): int
+    }
+
+    struct pmbus_hw_stats STRUCT_COLOR {
+        +i2c_transactions: uint32_t
+        +i2c_errors: uint32_t
+        +i2c_timeouts: uint32_t
+        +i2c_retries: uint32_t
+        +gpio_interrupts: uint32_t
+        +power_state_changes: uint32_t
+        +bus_resets: uint32_t
+        +last_error_code: int
+        +last_error_timestamp: uint32_t
+        +total_bytes_transferred: uint64_t
+        +max_transaction_time_us: uint32_t
+        +avg_transaction_time_us: uint32_t
+    }
+
+    struct pmbus_hw_config STRUCT_COLOR {
+        +i2c_speed_hz: uint32_t
+        +i2c_timeout_ms: uint32_t
+        +i2c_retry_count: uint8_t
+        +clock_stretch_timeout_us: uint32_t
+        +gpio_debounce_ms: uint16_t
+        +power_on_delay_ms: uint16_t
+        +power_off_delay_ms: uint16_t
+        +enable_dma: bool
+        +enable_interrupts: bool
+        +enable_power_management: bool
+    }
+
+    struct pmbus_hw_desc STRUCT_COLOR {
+        +ops: pmbus_hw_interface*
+        +platform_data: void*
+        +capabilities: uint32_t
+        +config: pmbus_hw_config
+        +stats: pmbus_hw_stats
+        +device_name: char[32]
+        +manufacturer: char[32]
+        +hardware_version: char[16]
+        +driver_version: char[16]
+        +lock: pmbus_hw_lock
+        +reference_count: int
+        +initialized: bool
+    }
+
+    struct pmbus_hw_lock STRUCT_COLOR {
+        +mutex: void*
+        +owner_thread_id: uint32_t
+        +lock_count: int
+        +timeout_ms: uint32_t
+    }
+
+    struct pmbus_gpio_callback STRUCT_COLOR {
+        +callback_func: pmbus_gpio_interrupt_handler
+        +user_data: void*
+        +edge_type: pmbus_gpio_edge_type
+        +debounce_ms: uint16_t
+        +enabled: bool
+    }
+
+    enum pmbus_gpio_edge_type ENUM_COLOR {
+        PMBUS_GPIO_EDGE_RISING
+        PMBUS_GPIO_EDGE_FALLING
+        PMBUS_GPIO_EDGE_BOTH
+        PMBUS_GPIO_LEVEL_HIGH
+        PMBUS_GPIO_LEVEL_LOW
+    }
+
+}
+
+package "Platform Implementations" {
+
+    class pmbus_hw_linux IMPL_COLOR {
+        +linux_i2c_fd: int
+        +linux_gpio_fds: int[PMBUS_GPIO_MAX]
+        +sysfs_paths: char*[PMBUS_GPIO_MAX]
+        +epoll_fd: int
+        +thread_id: pthread_t
+        --
+        +pmbus_hw_linux_create(config: pmbus_hw_linux_config*): pmbus_hw_desc*
+        +pmbus_hw_linux_destroy(hw: pmbus_hw_desc*): int
+        -linux_i2c_write(hw: pmbus_hw_desc*, addr: uint8_t, \n                 data: uint8_t*, len: size_t): int
+        -linux_i2c_read(hw: pmbus_hw_desc*, addr: uint8_t, \n                data: uint8_t*, len: size_t): int
+        -linux_gpio_set(hw: pmbus_hw_desc*, type: pmbus_gpio_type, \n                value: uint8_t): int
+        -linux_gpio_get(hw: pmbus_hw_desc*, type: pmbus_gpio_type, \n                value: uint8_t*): int
+        -linux_delay_us(microseconds: uint32_t): int
+        -linux_get_time_us(): uint32_t
+        -linux_gpio_interrupt_thread(arg: void*): void*
+    }
+
+    struct pmbus_hw_linux_config STRUCT_COLOR {
+        +i2c_device_path: char[64]
+        +gpio_chip_path: char[64]
+        +gpio_pin_map: pmbus_gpio_pin_map[PMBUS_GPIO_MAX]
+        +use_sysfs_gpio: bool
+        +interrupt_thread_priority: int
+        +enable_rt_scheduling: bool
+    }
+
+    struct pmbus_gpio_pin_map STRUCT_COLOR {
+        +gpio_type: pmbus_gpio_type
+        +pin_number: int
+        +active_low: bool
+        +pull_up: bool
+        +pull_down: bool
+    }
+
+    class pmbus_hw_embedded IMPL_COLOR {
+        +i2c_peripheral: void*
+        +gpio_ports: void*[PMBUS_GPIO_MAX]
+        +dma_channel: void*
+        +interrupt_handlers: pmbus_interrupt_handler[PMBUS_GPIO_MAX]
+        --
+        +pmbus_hw_embedded_create(config: pmbus_hw_embedded_config*): pmbus_hw_desc*
+        +pmbus_hw_embedded_destroy(hw: pmbus_hw_desc*): int
+        -embedded_i2c_write(hw: pmbus_hw_desc*, addr: uint8_t, \n                    data: uint8_t*, len: size_t): int
+        -embedded_i2c_read(hw: pmbus_hw_desc*, addr: uint8_t, \n                   data: uint8_t*, len: size_t): int
+        -embedded_gpio_set(hw: pmbus_hw_desc*, type: pmbus_gpio_type, \n                   value: uint8_t): int
+        -embedded_gpio_get(hw: pmbus_hw_desc*, type: pmbus_gpio_type, \n                   value: uint8_t*): int
+        -embedded_delay_us(microseconds: uint32_t): int
+        -embedded_get_time_us(): uint32_t
+        -embedded_power_management(hw: pmbus_hw_desc*, \n                          state: pmbus_power_state): int
+    }
+
+    struct pmbus_hw_embedded_config STRUCT_COLOR {
+        +i2c_base_address: uintptr_t
+        +i2c_clock_source: uint32_t
+        +gpio_base_addresses: uintptr_t[PMBUS_GPIO_MAX]
+        +dma_base_address: uintptr_t
+        +interrupt_vector_base: uint32_t
+        +cpu_clock_hz: uint32_t
+        +peripheral_clock_hz: uint32_t
+        +enable_low_power: bool
+    }
+
+    class pmbus_hw_simulation IMPL_COLOR {
+        +sim_devices: pmbus_sim_device[PMBUS_MAX_SIM_DEVICES]
+        +sim_state: pmbus_sim_state
+        +log_file: FILE*
+        +trace_enabled: bool
+        --
+        +pmbus_hw_simulation_create(config: pmbus_hw_sim_config*): pmbus_hw_desc*
+        +pmbus_hw_simulation_destroy(hw: pmbus_hw_desc*): int
+        +pmbus_hw_simulation_add_device(hw: pmbus_hw_desc*, \n                               addr: uint8_t, \n                               device_model: pmbus_sim_device_model*): int
+        -sim_i2c_write(hw: pmbus_hw_desc*, addr: uint8_t, \n              data: uint8_t*, len: size_t): int
+        -sim_i2c_read(hw: pmbus_hw_desc*, addr: uint8_t, \n             data: uint8_t*, len: size_t): int
+        -sim_gpio_set(hw: pmbus_hw_desc*, type: pmbus_gpio_type, \n             value: uint8_t): int
+        -sim_delay_us(microseconds: uint32_t): int
+        -sim_log_transaction(hw: pmbus_hw_desc*, operation: char*, \n                    addr: uint8_t, data: uint8_t*, len: size_t): void
+    }
+
+}
+
+package "HAL Utilities" {
+
+    class pmbus_hw_manager STRUCT_COLOR {
+        +registered_drivers: pmbus_hw_driver_registry[PMBUS_MAX_DRIVERS]
+        +active_instances: pmbus_hw_desc*[PMBUS_MAX_INSTANCES]
+        +instance_count: size_t
+        +manager_lock: pmbus_hw_lock
+        --
+        +pmbus_hw_register_driver(name: char*, \n                         create_func: pmbus_hw_create_func, \n                         destroy_func: pmbus_hw_destroy_func): int
+        +pmbus_hw_create_instance(driver_name: char*, \n                         config: void*): pmbus_hw_desc*
+        +pmbus_hw_destroy_instance(hw: pmbus_hw_desc*): int
+        +pmbus_hw_enumerate_drivers(): pmbus_hw_driver_info*
+        +pmbus_hw_get_instance_info(hw: pmbus_hw_desc*): pmbus_hw_instance_info*
+    }
+
+    struct pmbus_hw_driver_registry STRUCT_COLOR {
+        +driver_name: char[32]
+        +create_func: pmbus_hw_create_func
+        +destroy_func: pmbus_hw_destroy_func
+        +driver_version: char[16]
+        +supported_capabilities: uint32_t
+        +registered: bool
+    }
+
+    class pmbus_hw_diagnostics STRUCT_COLOR {
+        --
+        +pmbus_hw_run_self_test(hw: pmbus_hw_desc*): pmbus_hw_test_result*
+        +pmbus_hw_measure_timing(hw: pmbus_hw_desc*, \n                        test_type: pmbus_hw_timing_test): pmbus_hw_timing_result*
+        +pmbus_hw_check_signal_integrity(hw: pmbus_hw_desc*): pmbus_hw_signal_quality*
+        +pmbus_hw_stress_test(hw: pmbus_hw_desc*, \n                      duration_ms: uint32_t): pmbus_hw_stress_result*
+        +pmbus_hw_generate_report(hw: pmbus_hw_desc*, \n                         report_type: pmbus_hw_report_type): char*
+    }
+
+    struct pmbus_hw_test_result STRUCT_COLOR {
+        +overall_result: bool
+        +test_count: uint32_t
+        +passed_count: uint32_t
+        +failed_count: uint32_t
+        +test_details: pmbus_hw_test_detail[PMBUS_MAX_TESTS]
+        +test_duration_ms: uint32_t
+    }
+
+    struct pmbus_hw_timing_result STRUCT_COLOR {
+        +min_time_us: uint32_t
+        +max_time_us: uint32_t
+        +avg_time_us: uint32_t
+        +std_deviation_us: uint32_t
+        +sample_count: uint32_t
+        +within_spec: bool
+    }
+
+}
+
+' Relationships
+pmbus_hw_desc *-- pmbus_hw_interface
+pmbus_hw_desc *-- pmbus_hw_config
+pmbus_hw_desc *-- pmbus_hw_stats
+pmbus_hw_desc *-- pmbus_hw_lock
+
+pmbus_hw_interface <|.. pmbus_hw_linux : implements
+pmbus_hw_interface <|.. pmbus_hw_embedded : implements
+pmbus_hw_interface <|.. pmbus_hw_simulation : implements
+
+pmbus_hw_linux *-- pmbus_hw_linux_config
+pmbus_hw_linux_config *-- pmbus_gpio_pin_map
+
+pmbus_hw_embedded *-- pmbus_hw_embedded_config
+
+pmbus_hw_manager o-- pmbus_hw_desc : manages
+pmbus_hw_manager *-- pmbus_hw_driver_registry
+
+pmbus_hw_diagnostics ..> pmbus_hw_desc : tests
+pmbus_hw_diagnostics --> pmbus_hw_test_result : generates
+pmbus_hw_diagnostics --> pmbus_hw_timing_result : generates
+
+pmbus_gpio_callback --> pmbus_gpio_edge_type
+
+note top of pmbus_hw_interface
+    **Core Hardware Interface**
+    - Provides platform-independent API
+    - Supports I2C, GPIO, timing, and power management
+    - Thread-safe operations with locking
+    - Comprehensive error handling
+    - Statistics and diagnostics support
+end note
+
+note top of pmbus_hw_linux
+    **Linux Implementation**
+    - Uses /dev/i2c-X devices
+    - GPIO via sysfs or libgpiod
+    - pthread for interrupt handling
+    - Real-time scheduling support
+    - DMA support for bulk transfers
+end note
+
+note top of pmbus_hw_embedded
+    **Embedded/Bare-Metal Implementation**
+    - Direct hardware register access
+    - RTOS or bare-metal compatible
+    - Hardware interrupt handling
+    - Low-power mode support
+    - DMA and hardware PEC support
+end note
+
+note top of pmbus_hw_simulation
+    **Simulation Implementation**
+    - Software device models
+    - Transaction logging and tracing
+    - Fault injection capabilities
+    - Performance simulation
+    - Automated testing support
+end note
+
+note bottom of pmbus_hw_manager
+    **Hardware Manager**
+    - Runtime driver registration
+    - Instance lifecycle management
+    - Resource sharing and allocation
+    - Multi-threading coordination
+    - Platform abstraction
+end note
+
+@enduml

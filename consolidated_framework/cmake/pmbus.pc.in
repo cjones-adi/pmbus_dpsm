@@ -1,0 +1,14 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: @PROJECT_NAME@
+Description: @PROJECT_DESCRIPTION@
+Version: @PROJECT_VERSION@
+URL: https://github.com/analog-devices/consolidated-pmbus
+
+Requires:
+Libs: -L${libdir} -lpmbus
+Libs.private: @PMBUS_PRIVATE_LIBS@
+Cflags: -I${includedir}

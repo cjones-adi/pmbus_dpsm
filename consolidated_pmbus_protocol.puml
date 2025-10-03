@@ -1,0 +1,538 @@
+@startuml PMBus_Protocol_Layer_Unified_Framework
+
+!define INTERFACE_COLOR #E1F5FE
+!define STRUCT_COLOR #F3E5F5
+!define ENUM_COLOR #E8F5E8
+!define IMPL_COLOR #FFF3E0
+!define UTIL_COLOR #F0F4C3
+!define FACTORY_COLOR #FCE4EC
+
+title PMBus Protocol Layer - Unified Framework
+
+package "Core Protocol Framework" {
+
+    enum pmbus_data_format ENUM_COLOR {
+        PMBUS_FORMAT_DIRECT
+        PMBUS_FORMAT_LINEAR11
+        PMBUS_FORMAT_LINEAR16
+        PMBUS_FORMAT_VID
+        PMBUS_FORMAT_IEEE754
+        PMBUS_FORMAT_LITERAL
+        PMBUS_FORMAT_UINT8
+        PMBUS_FORMAT_UINT16
+        PMBUS_FORMAT_MANUFACTURER_SPECIFIC
+    }
+
+    enum pmbus_access_type ENUM_COLOR {
+        PMBUS_ACCESS_SEND_BYTE
+        PMBUS_ACCESS_READ_BYTE
+        PMBUS_ACCESS_WRITE_BYTE
+        PMBUS_ACCESS_READ_WORD
+        PMBUS_ACCESS_WRITE_WORD
+        PMBUS_ACCESS_READ_BLOCK
+        PMBUS_ACCESS_WRITE_BLOCK
+        PMBUS_ACCESS_PROCESS_CALL
+        PMBUS_ACCESS_BLOCK_PROCESS_CALL
+        PMBUS_ACCESS_RW
+    }
+
+    enum pmbus_command_class ENUM_COLOR {
+        PMBUS_CMD_CONTROL
+        PMBUS_CMD_CONFIG
+        PMBUS_CMD_STATUS
+        PMBUS_CMD_TELEMETRY
+        PMBUS_CMD_LIMIT
+        PMBUS_CMD_TIMING
+        PMBUS_CMD_IDENTIFICATION
+        PMBUS_CMD_MANUFACTURER
+        PMBUS_CMD_EXTENDED
+    }
+
+    struct pmbus_cmd_desc STRUCT_COLOR {
+        +command: uint8_t
+        +name: char[32]
+        +format: pmbus_data_format
+        +access_type: pmbus_access_type
+        +command_class: pmbus_command_class
+        +data_length: uint8_t
+        +is_paged: bool
+        +is_manufacturer_specific: bool
+        +pmbus_version: uint8_t
+        +scaling_factor: int32_t
+        +min_value: int32_t
+        +max_value: int32_t
+        +default_value: int32_t
+        +capabilities_mask: uint32_t
+        +validation_func: pmbus_validation_func
+        +conversion_func: pmbus_conversion_func
+    }
+
+    struct pmbus_device_info STRUCT_COLOR {
+        +manufacturer_id: uint16_t
+        +device_id: uint16_t
+        +device_revision: uint16_t
+        +pmbus_revision: uint8_t
+        +manufacturer_name: char[16]
+        +device_model: char[16]
+        +device_revision_str: char[8]
+        +manufacturing_date: char[8]
+        +manufacturing_location: char[8]
+        +serial_number: char[16]
+        +ic_device_id: char[8]
+        +ic_device_rev: uint8_t
+    }
+
+    struct pmbus_capability_info STRUCT_COLOR {
+        +supported_commands: uint32_t[8]
+        +supported_formats: uint32_t
+        +max_pages: uint8_t
+        +has_pec_support: bool
+        +has_smbus_arp: bool
+        +has_host_notify: bool
+        +has_process_call: bool
+        +has_block_process_call: bool
+        +has_group_command: bool
+        +has_extended_commands: bool
+        +voltage_mode_commands: bool
+        +current_mode_commands: bool
+        +power_mode_commands: bool
+        +temperature_commands: bool
+        +fan_commands: bool
+        +max_block_size: uint8_t
+        +timing_accuracy_us: uint16_t
+    }
+
+    interface pmbus_device_ops INTERFACE_COLOR {
+        +identify(dev: pmbus_device*): int
+        +init_device(dev: pmbus_device*): int
+        +reset_device(dev: pmbus_device*): int
+        +soft_reset(dev: pmbus_device*): int
+        +cmd_supported(dev: pmbus_device*, cmd: uint8_t): bool
+        +get_cmd_format(dev: pmbus_device*, cmd: uint8_t): pmbus_data_format
+        +get_direct_coefficients(dev: pmbus_device*, cmd: uint8_t, \n                        coeff: pmbus_direct_coefficients*): int
+        +validate_command(dev: pmbus_device*, cmd: uint8_t, \n                 data: uint8_t*, length: uint8_t): int
+        +pre_command_hook(dev: pmbus_device*, cmd: uint8_t): int
+        +post_command_hook(dev: pmbus_device*, cmd: uint8_t, \n                  result: int): int
+        +read_telemetry(dev: pmbus_device*, \n               telemetry: pmbus_telemetry*): int
+        +set_operation_mode(dev: pmbus_device*, \n                   mode: pmbus_operation_mode): int
+        +handle_fault(dev: pmbus_device*, fault_mask: uint32_t): int
+        +get_fault_log(dev: pmbus_device*, \n              records: pmbus_fault_record*, \n              count: size_t*): int
+        +clear_fault_log(dev: pmbus_device*): int
+        +store_user_config(dev: pmbus_device*): int
+        +restore_user_config(dev: pmbus_device*): int
+        +enter_power_state(dev: pmbus_device*, \n                  state: pmbus_power_state): int
+        +calibrate_telemetry(dev: pmbus_device*, \n                    cal_data: pmbus_calibration_data*): int
+    }
+
+    struct pmbus_device STRUCT_COLOR {
+        +transport: pmbus_transport*
+        +address: uint8_t
+        +info: pmbus_device_info
+        +capability: pmbus_capability_info
+        +current_page: uint8_t
+        +num_pages: uint8_t
+        +linear16_exponent: int16_t
+        +supported_formats: uint32_t
+        +ops: pmbus_device_ops*
+        +cmd_table: pmbus_cmd_desc*
+        +cmd_table_size: size_t
+        +fault_log: pmbus_fault_log*
+        +telemetry_cache: pmbus_telemetry_cache*
+        +device_state: pmbus_device_state
+        +config: pmbus_device_config
+        +statistics: pmbus_device_statistics
+        +lock: pmbus_device_lock
+        +device_data: void*
+        +reference_count: int
+        +initialized: bool
+        +fault_condition: bool
+    }
+
+    struct pmbus_device_state STRUCT_COLOR {
+        +operation_state: pmbus_operation_mode
+        +power_state: pmbus_power_state
+        +margin_state: pmbus_margin_mode
+        +fault_state: uint32_t
+        +warning_state: uint32_t
+        +status_word: uint16_t
+        +last_command: uint8_t
+        +last_command_time: uint32_t
+        +page_change_count: uint32_t
+        +fault_count: uint32_t
+        +uptime_seconds: uint32_t
+    }
+
+    struct pmbus_device_config STRUCT_COLOR {
+        +enable_pec: bool
+        +enable_telemetry_cache: bool
+        +cache_timeout_ms: uint16_t
+        +fault_monitoring: bool
+        +auto_page_management: bool
+        +command_validation: bool
+        +telemetry_update_rate_ms: uint16_t
+        +fault_log_size: uint16_t
+        +retry_on_nack: bool
+        +max_retries: uint8_t
+    }
+
+}
+
+package "Data Conversion Framework" {
+
+    struct pmbus_direct_coefficients STRUCT_COLOR {
+        +m: int16_t
+        +b: int16_t
+        +R: int8_t
+    }
+
+    struct pmbus_linear_coefficients STRUCT_COLOR {
+        +mantissa: int16_t
+        +exponent: int8_t
+    }
+
+    interface pmbus_data_converter INTERFACE_COLOR {
+        +to_raw(value: int32_t, format: pmbus_data_format, \n       coeffs: void*, raw: uint16_t*): int
+        +from_raw(raw: uint16_t, format: pmbus_data_format, \n         coeffs: void*, value: int32_t*): int
+        +validate_range(value: int32_t, format: pmbus_data_format, \n               coeffs: void*): bool
+        +get_precision(format: pmbus_data_format, coeffs: void*): int32_t
+        +scale_value(value: int32_t, from_scale: int32_t, \n            to_scale: int32_t): int32_t
+    }
+
+    class pmbus_converter_linear11 IMPL_COLOR {
+        --
+        +to_raw(value: int32_t, format: pmbus_data_format, \n       coeffs: void*, raw: uint16_t*): int
+        +from_raw(raw: uint16_t, format: pmbus_data_format, \n         coeffs: void*, value: int32_t*): int
+        +validate_range(value: int32_t, format: pmbus_data_format, \n               coeffs: void*): bool
+        -find_best_exponent(mantissa: int16_t): int8_t
+        -clamp_mantissa(mantissa: int16_t): int16_t
+    }
+
+    class pmbus_converter_linear16 IMPL_COLOR {
+        --
+        +to_raw(value: int32_t, format: pmbus_data_format, \n       coeffs: void*, raw: uint16_t*): int
+        +from_raw(raw: uint16_t, format: pmbus_data_format, \n         coeffs: void*, value: int32_t*): int
+        +validate_range(value: int32_t, format: pmbus_data_format, \n               coeffs: void*): bool
+        -apply_exponent(value: int32_t, exponent: int8_t): int32_t
+    }
+
+    class pmbus_converter_direct IMPL_COLOR {
+        --
+        +to_raw(value: int32_t, format: pmbus_data_format, \n       coeffs: void*, raw: uint16_t*): int
+        +from_raw(raw: uint16_t, format: pmbus_data_format, \n         coeffs: void*, value: int32_t*): int
+        +validate_range(value: int32_t, format: pmbus_data_format, \n               coeffs: void*): bool
+        -apply_direct_formula(raw: uint16_t, \n                     coeffs: pmbus_direct_coefficients*): int32_t
+        -inverse_direct_formula(value: int32_t, \n                       coeffs: pmbus_direct_coefficients*): uint16_t
+    }
+
+    class pmbus_converter_ieee754 IMPL_COLOR {
+        --
+        +to_raw(value: int32_t, format: pmbus_data_format, \n       coeffs: void*, raw: uint16_t*): int
+        +from_raw(raw: uint16_t, format: pmbus_data_format, \n         coeffs: void*, value: int32_t*): int
+        +validate_range(value: int32_t, format: pmbus_data_format, \n               coeffs: void*): bool
+        -float_to_half_precision(value: float): uint16_t
+        -half_precision_to_float(raw: uint16_t): float
+    }
+
+    class pmbus_conversion_manager UTIL_COLOR {
+        +converters: pmbus_data_converter*[PMBUS_FORMAT_COUNT]
+        +conversion_cache: pmbus_conversion_cache*
+        --
+        +register_converter(format: pmbus_data_format, \n                   converter: pmbus_data_converter*): int
+        +convert_value(value: int32_t, from_format: pmbus_data_format, \n                  to_format: pmbus_data_format, \n                  coeffs: void*): int32_t
+        +batch_convert(values: int32_t*, count: size_t, \n              from_format: pmbus_data_format, \n              to_format: pmbus_data_format): int
+        +validate_conversion(value: int32_t, format: pmbus_data_format): bool
+        +get_conversion_error(from_format: pmbus_data_format, \n                     to_format: pmbus_data_format): int32_t
+    }
+
+}
+
+package "Device Discovery and Factory" {
+
+    struct pmbus_device_registry_entry FACTORY_COLOR {
+        +manufacturer_id: uint16_t
+        +device_id: uint16_t
+        +revision_mask: uint16_t
+        +revision_value: uint16_t
+        +device_name: char[32]
+        +manufacturer_name: char[16]
+        +device_category: pmbus_device_category
+        +capabilities: uint32_t
+        +ops: pmbus_device_ops*
+        +cmd_table: pmbus_cmd_desc*
+        +cmd_table_size: size_t
+        +default_config: pmbus_device_config
+        +detection_priority: uint8_t
+        +factory_func: pmbus_device_factory_func
+    }
+
+    enum pmbus_device_category ENUM_COLOR {
+        PMBUS_CATEGORY_CONTROLLER
+        PMBUS_CATEGORY_MANAGER
+        PMBUS_CATEGORY_SEQUENCER
+        PMBUS_CATEGORY_MONITOR
+        PMBUS_CATEGORY_REGULATOR
+        PMBUS_CATEGORY_CONVERTER
+        PMBUS_CATEGORY_PROTECTION
+        PMBUS_CATEGORY_HYBRID
+        PMBUS_CATEGORY_GENERIC
+    }
+
+    class pmbus_device_registry FACTORY_COLOR {
+        +entries: pmbus_device_registry_entry[PMBUS_MAX_DEVICE_TYPES]
+        +entry_count: size_t
+        +registry_lock: pmbus_registry_lock
+        --
+        +register_device_type(entry: pmbus_device_registry_entry*): int
+        +unregister_device_type(manufacturer_id: uint16_t, \n                       device_id: uint16_t): int
+        +find_device_type(manufacturer_id: uint16_t, \n                 device_id: uint16_t, \n                 revision: uint16_t): pmbus_device_registry_entry*
+        +enumerate_device_types(filter: pmbus_device_filter*): pmbus_device_list*
+        +get_device_count(): size_t
+        +validate_registry(): int
+    }
+
+    class pmbus_device_factory FACTORY_COLOR {
+        +registry: pmbus_device_registry*
+        +created_devices: pmbus_device*[PMBUS_MAX_DEVICES]
+        +device_count: size_t
+        --
+        +create_device(transport: pmbus_transport*, address: uint8_t): pmbus_device*
+        +create_device_by_type(transport: pmbus_transport*, \n                      address: uint8_t, \n                      entry: pmbus_device_registry_entry*): pmbus_device*
+        +destroy_device(device: pmbus_device*): int
+        +clone_device(source: pmbus_device*, \n             new_address: uint8_t): pmbus_device*
+        +get_device_info(address: uint8_t, \n                info: pmbus_device_info*): int
+        +validate_device(device: pmbus_device*): int
+    }
+
+    struct pmbus_discovery_config STRUCT_COLOR {
+        +start_address: uint8_t
+        +end_address: uint8_t
+        +scan_timeout_ms: uint16_t
+        +deep_scan: bool
+        +validate_devices: bool
+        +auto_configure: bool
+        +parallel_scan: bool
+        +scan_retries: uint8_t
+        +ignore_addresses: uint8_t[16]
+        +ignore_count: uint8_t
+        +discovery_callback: pmbus_discovery_callback
+        +progress_callback: pmbus_progress_callback
+    }
+
+    class pmbus_device_discovery UTIL_COLOR {
+        +transport: pmbus_transport*
+        +config: pmbus_discovery_config
+        +discovered_devices: pmbus_device*[PMBUS_MAX_DISCOVERED_DEVICES]
+        +device_count: size_t
+        +discovery_state: pmbus_discovery_state
+        --
+        +start_discovery(): int
+        +stop_discovery(): int
+        +discover_at_address(address: uint8_t): pmbus_device*
+        +scan_address_range(start: uint8_t, end: uint8_t): int
+        +get_discovered_devices(): pmbus_device**
+        +filter_devices(filter: pmbus_device_filter*): pmbus_device_list*
+        +validate_discovery(): int
+        -probe_device_info(address: uint8_t, \n                  info: pmbus_device_info*): int
+        -detect_device_capabilities(address: uint8_t, \n                           caps: pmbus_capability_info*): int
+    }
+
+}
+
+package "Command Processing Engine" {
+
+    struct pmbus_command_context STRUCT_COLOR {
+        +device: pmbus_device*
+        +command: uint8_t
+        +page: uint8_t
+        +data: uint8_t[PMBUS_MAX_BLOCK_SIZE]
+        +data_length: uint8_t
+        +transaction_id: uint32_t
+        +timestamp: uint32_t
+        +flags: uint32_t
+        +user_data: void*
+    }
+
+    class pmbus_command_processor UTIL_COLOR {
+        +command_queue: pmbus_command_queue*
+        +validator: pmbus_command_validator*
+        +interceptors: pmbus_command_interceptor*[PMBUS_MAX_INTERCEPTORS]
+        +interceptor_count: size_t
+        --
+        +execute_command(ctx: pmbus_command_context*): int
+        +queue_command(ctx: pmbus_command_context*): int
+        +validate_command(ctx: pmbus_command_context*): int
+        +add_interceptor(interceptor: pmbus_command_interceptor*): int
+        +remove_interceptor(interceptor: pmbus_command_interceptor*): int
+        +flush_queue(): int
+        +get_queue_status(status: pmbus_queue_status*): int
+        -preprocess_command(ctx: pmbus_command_context*): int
+        -postprocess_command(ctx: pmbus_command_context*, result: int): int
+    }
+
+    interface pmbus_command_interceptor INTERFACE_COLOR {
+        +before_command(ctx: pmbus_command_context*): int
+        +after_command(ctx: pmbus_command_context*, result: int): int
+        +on_command_error(ctx: pmbus_command_context*, error: int): int
+    }
+
+    class pmbus_command_validator UTIL_COLOR {
+        +validation_rules: pmbus_validation_rule*[PMBUS_MAX_VALIDATION_RULES]
+        +rule_count: size_t
+        --
+        +validate_command(ctx: pmbus_command_context*): int
+        +add_validation_rule(rule: pmbus_validation_rule*): int
+        +remove_validation_rule(rule: pmbus_validation_rule*): int
+        +validate_data_format(data: uint8_t*, length: uint8_t, \n                     expected_format: pmbus_data_format): bool
+        +validate_command_access(device: pmbus_device*, \n                        command: uint8_t, \n                        access_type: pmbus_access_type): bool
+        +validate_page_context(device: pmbus_device*, \n                      command: uint8_t, page: uint8_t): bool
+    }
+
+}
+
+package "Telemetry and Status Management" {
+
+    struct pmbus_telemetry STRUCT_COLOR {
+        +voltage_in: int32_t
+        +voltage_out: int32_t
+        +current_in: int32_t
+        +current_out: int32_t
+        +power_in: int32_t
+        +power_out: int32_t
+        +temperature_1: int32_t
+        +temperature_2: int32_t
+        +temperature_3: int32_t
+        +duty_cycle: int32_t
+        +frequency: int32_t
+        +efficiency: int32_t
+        +timestamp: uint32_t
+        +valid_mask: uint32_t
+    }
+
+    struct pmbus_status_info STRUCT_COLOR {
+        +status_byte: uint8_t
+        +status_word: uint16_t
+        +status_vout: uint8_t
+        +status_iout: uint8_t
+        +status_input: uint8_t
+        +status_temperature: uint8_t
+        +status_cml: uint8_t
+        +status_other: uint8_t
+        +status_mfr_specific: uint8_t
+        +timestamp: uint32_t
+        +fault_summary: uint32_t
+        +warning_summary: uint32_t
+    }
+
+    class pmbus_telemetry_manager UTIL_COLOR {
+        +devices: pmbus_device*[PMBUS_MAX_MANAGED_DEVICES]
+        +device_count: size_t
+        +update_thread: void*
+        +update_interval_ms: uint16_t
+        +telemetry_cache: pmbus_telemetry_cache*
+        --
+        +start_monitoring(): int
+        +stop_monitoring(): int
+        +add_device(device: pmbus_device*): int
+        +remove_device(device: pmbus_device*): int
+        +read_telemetry(device: pmbus_device*, \n               telemetry: pmbus_telemetry*): int
+        +read_status(device: pmbus_device*, \n            status: pmbus_status_info*): int
+        +set_update_rate(interval_ms: uint16_t): int
+        +get_cached_telemetry(device: pmbus_device*, \n                     telemetry: pmbus_telemetry*): int
+        -update_telemetry_worker(): void
+    }
+
+}
+
+' Relationships
+pmbus_device *-- pmbus_device_info
+pmbus_device *-- pmbus_capability_info
+pmbus_device *-- pmbus_device_state
+pmbus_device *-- pmbus_device_config
+pmbus_device --> pmbus_device_ops : uses
+pmbus_device --> pmbus_transport : communicates through
+pmbus_device *-- pmbus_cmd_desc : has command table
+
+pmbus_data_converter <|.. pmbus_converter_linear11 : implements
+pmbus_data_converter <|.. pmbus_converter_linear16 : implements
+pmbus_data_converter <|.. pmbus_converter_direct : implements
+pmbus_data_converter <|.. pmbus_converter_ieee754 : implements
+
+pmbus_conversion_manager --> pmbus_data_converter : uses
+pmbus_converter_direct --> pmbus_direct_coefficients : uses
+pmbus_converter_linear11 --> pmbus_linear_coefficients : uses
+pmbus_converter_linear16 --> pmbus_linear_coefficients : uses
+
+pmbus_device_registry *-- pmbus_device_registry_entry
+pmbus_device_factory --> pmbus_device_registry : uses
+pmbus_device_discovery --> pmbus_device_factory : uses
+pmbus_device_discovery --> pmbus_transport : scans through
+
+pmbus_command_processor --> pmbus_command_validator : validates with
+pmbus_command_processor --> pmbus_command_interceptor : uses
+pmbus_command_processor --> pmbus_command_context : processes
+
+pmbus_telemetry_manager --> pmbus_device : monitors
+pmbus_telemetry_manager --> pmbus_telemetry : collects
+pmbus_telemetry_manager --> pmbus_status_info : reads
+
+pmbus_cmd_desc --> pmbus_data_format : specifies
+pmbus_cmd_desc --> pmbus_access_type : defines
+pmbus_cmd_desc --> pmbus_command_class : categorizes
+
+note top of pmbus_device
+    **Core PMBus Device**
+    - Unified device abstraction
+    - Transport-independent communication
+    - Comprehensive capability discovery
+    - Multi-page device support
+    - Thread-safe operations with locking
+    - Runtime configuration and statistics
+end note
+
+note top of pmbus_data_converter
+    **Data Conversion Framework**
+    - Pluggable converter architecture
+    - Support for all PMBus data formats
+    - Automatic format detection
+    - Range validation and error checking
+    - High-precision conversion algorithms
+    - Batch conversion optimization
+end note
+
+note top of pmbus_device_registry
+    **Device Factory System**
+    - Runtime device type registration
+    - Automatic device detection and creation
+    - Support for manufacturer extensions
+    - Priority-based device matching
+    - Comprehensive device validation
+end note
+
+note top of pmbus_command_processor
+    **Command Processing Engine**
+    - Queued command execution
+    - Command validation and interceptors
+    - Pre/post processing hooks
+    - Error handling and recovery
+    - Performance monitoring
+end note
+
+note top of pmbus_telemetry_manager
+    **Telemetry System**
+    - Automatic telemetry collection
+    - Configurable update rates
+    - Cached telemetry access
+    - Multi-device monitoring
+    - Status and fault tracking
+end note
+
+note bottom of pmbus_device_discovery
+    **Device Discovery**
+    - Automatic bus scanning
+    - Deep device capability probing
+    - Parallel discovery support
+    - Configurable scan parameters
+    - Progress callbacks and filtering
+end note
+
+@enduml

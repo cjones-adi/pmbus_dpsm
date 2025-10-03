@@ -1,0 +1,282 @@
+@startuml Fault_Logging_Architecture
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam classBackgroundColor #F8F9FA
+skinparam classBorderColor #6C757D
+skinparam classArrowColor #495057
+skinparam noteBackgroundColor #FFF3CD
+skinparam noteBorderColor #856404
+
+title PMBus DPSM - Fault Logging Architecture\nStrategy Pattern Implementation
+
+package "Strategy Pattern Core" {
+    abstract class LT_FaultLog {
+        # pmbus_ : LT_PMBus*
+        + LT_FaultLog(pmbus : LT_PMBus*)
+        + {abstract} hasFaultLog(address : uint8_t) : bool
+        + {abstract} read(address : uint8_t) : void
+        + {abstract} print() : void
+        + {abstract} getBinary() : uint8_t*
+        + {abstract} getBinarySize() : uint16_t
+        + {abstract} dumpBinary() : void
+        + {abstract} release() : void
+        + enableFaultLog(address : uint8_t) : void
+        + disableFaultLog(address : uint8_t) : void
+        + clearFaultLog(address : uint8_t) : void
+        + storeFaultLog(address : uint8_t) : void
+        --
+        + getSharedTime200us(time_stamp : FaultLogTimeStamp) : uint64_t
+        + getTimeInMs(time_stamp : FaultLogTimeStamp) : float
+        + getRawByteVal(value : RawByte) : uint8_t
+        + getRawWordVal(value : RawWord) : uint16_t
+        + getLin5_11WordVal(value : Lin5_11Word) : uint16_t
+        + getLin16WordVal(value : Lin16Word) : uint16_t
+    }
+
+    note top of LT_FaultLog
+        Base Strategy Pattern class
+        Defines common interface for
+        all fault logging implementations
+    end note
+}
+
+package "Strategy 1: EEPROM Access" {
+    class LT_EEDataFaultLog {
+        + LT_EEDataFaultLog(pmbus : LT_PMBus*)
+        + getNvmBlock(address : uint8_t, offset : uint16_t, 
+                     numWords : uint16_t, crc : bool, data : uint8_t*)
+        --
+        Hardware EEPROM Access Protocol:
+        - Register 0xBD state machine control
+        - Register 0xBF word-based reading  
+        - Register 0xEF busy status polling
+        - CRC validation every 16 words
+        - Endianness conversion handling
+    }
+
+    note right of LT_EEDataFaultLog
+        Strategy for Controller devices
+        Direct EEPROM memory access
+        High-capacity fault storage
+        Sequential snapshot capture
+    end note
+}
+
+package "Strategy 2: Command Access" {
+    class LT_CommandPlusFaultLog {
+        + LT_CommandPlusFaultLog(pmbus : LT_PMBus*)
+        + getNvmBlock(address : uint8_t, offset : uint16_t,
+                     numWords : uint16_t, command : uint8_t, data : uint8_t*)
+        --
+        PMBus Command Protocol:
+        - Command-plus sequences (0x00EE)
+        - Size header consumption
+        - Offset-based data skipping
+        - Standard register access
+        - Circular buffer management
+    }
+
+    note right of LT_CommandPlusFaultLog
+        Strategy for Manager devices
+        Standard PMBus commands
+        Real-time register access
+        Multi-channel supervision
+    end note
+}
+
+package "Controller Device Implementations" {
+    class LT_3880FaultLog {
+        - faultLog3880 : FaultLogLtc3880*
+        - buffer : char*
+        + read(address : uint8_t) : void
+        + print() : void
+        + getBinary() : uint8_t*
+        + getBinarySize() : uint16_t
+        + get() : FaultLogLtc3880*
+        + release() : void
+        --
+        Private Methods:
+        - printTitle() : void
+        - printTime() : void  
+        - printPeaks() : void
+        - printAllLoops() : void
+        - printLoop(index : uint8_t) : void
+    }
+
+    struct FaultLogLtc3880 {
+        + preamble : FaultLogPreambleLtc3880
+        + fault_log_loop[6] : FaultLogReadLoopLtc3880
+        --
+        Total Size: 147 bytes
+        6 sequential snapshots
+        200μs interval timing
+    }
+
+    struct FaultLogPreambleLtc3880 {
+        + position_fault : uint8_t
+        + shared_time : FaultLogTimeStamp
+        + peaks : FaultLogTelemetrySummaryLtc3880
+        --
+        Peak Values Tracked:
+        - mfr_vout_peak_p0/p1 (Lin16WordReverse)
+        - mfr_iout_peak_p0/p1 (Lin5_11WordReverse)
+        - mfr_vin_peak (Lin5_11WordReverse)
+        - temperature readings & peaks
+    }
+
+    struct FaultLogReadLoopLtc3880 {
+        + read_vout_p0/p1 : Lin16WordReverse
+        + read_iout_p0/p1 : Lin5_11WordReverse  
+        + read_vin, read_iin : Lin5_11WordReverse
+        + status_vout_p0/p1 : RawByte
+        + status_word_p0/p1 : RawWordReverse
+        + status_mfr_specificP0/P1 : RawByte
+        --
+        Real-time telemetry snapshot
+        All critical parameters captured
+        Status flags and error conditions
+    }
+}
+
+package "Manager Device Implementations" {
+    class LT_2974FaultLog {
+        - faultLog2974 : FaultLogLtc2974*
+        - buffer : char*
+        - voutPeaks, ioutPeaks, tempPeaks : Peak**
+        - chanStatuses : ChanStatus**
+        - voutDatas, ioutDatas, poutDatas : Data**
+        + read(address : uint8_t) : void
+        + print() : void
+        + getBinary() : uint8_t*
+        + get() : FaultLogLtc2974*
+        + release() : void
+        --
+        Private Methods:
+        - printTitle() : void
+        - printTime() : void
+        - printPeaks() : void
+        - printFastChannel(index : uint8_t) : void
+        - printAllLoops() : void
+        - printLoop(index : uint8_t) : void
+    }
+
+    struct FaultLogLtc2974 {
+        + preamble : FaultLogPreambleLtc2974
+        + telemetryData[184] : uint8_t
+        + loops : FaultLogReadLoopLtc2974*
+        + firstValidByte : uint8_t
+        + lastValidByte : uint8_t
+        + isValidData(pos : void*, size : uint8_t) : bool
+        --
+        4-Channel Manager Design
+        Circular buffer architecture
+        Variable-length records
+        Dynamic valid data tracking
+    }
+
+    struct FaultLogPreambleLtc2974 {
+        + position_last : uint8_t
+        + shared_time : FaultLogTimeStamp
+        + peaks : FaultLogPeaksLtc2974
+        + fault_log_status : FaultLogReadStatusLtc2974
+        --
+        Multi-Channel Peak Tracking:
+        - vout0_peaks through vout3_peaks
+        - iout0_peaks through iout3_peaks  
+        - temp0_peaks through temp3_peaks
+        - vin_peaks (shared input)
+        - Per-channel status at fault time
+    }
+}
+
+package "Hardware Abstraction" {
+    class LT_PMBus {
+        - smbus_ : LT_SMBus*
+        + lockNVM(address : uint8_t) : bool
+        + eraseNVM(address : uint8_t) : void
+        + compareRamWithNvm(address : uint8_t) : bool
+        + waitForNotBusy(address : uint8_t) : void
+        + waitForNvmDone(address : uint8_t) : void
+        + readStatusByte(address : uint8_t) : uint8_t
+    }
+
+    interface LT_SMBus {
+        + readByte(address : uint8_t, command : uint8_t) : uint8_t
+        + readWord(address : uint8_t, command : uint8_t) : uint16_t
+        + writeByte(address : uint8_t, command : uint8_t, data : uint8_t) : void
+        + writeWord(address : uint8_t, command : uint8_t, data : uint16_t) : void
+    }
+}
+
+package "Data Format Definitions" {
+    struct Lin16Word {
+        + lo_byte : uint8_t
+        + hi_byte : uint8_t
+        --
+        16-bit signed integer
+        Implied scaling factor
+        Used for voltages
+    }
+
+    struct Lin5_11Word {
+        + lo_byte : uint8_t
+        + hi_byte : uint8_t
+        --
+        5-bit exponent + 11-bit mantissa
+        Wide dynamic range
+        Used for currents/temperatures
+    }
+
+    struct RawByte {
+        + uint8_tValue : uint8_t
+        --
+        Raw 8-bit data
+        Status flags and masks
+    }
+
+    struct FaultLogTimeStamp {
+        + shared_time_byte0..5 : uint8_t
+        --
+        48-bit timestamp
+        200μs resolution
+        Shared across fault events
+    }
+}
+
+' Inheritance relationships
+LT_FaultLog <|-- LT_EEDataFaultLog
+LT_FaultLog <|-- LT_CommandPlusFaultLog
+LT_EEDataFaultLog <|-- LT_3880FaultLog
+LT_CommandPlusFaultLog <|-- LT_2974FaultLog
+
+' Composition relationships  
+LT_3880FaultLog *-- FaultLogLtc3880
+LT_2974FaultLog *-- FaultLogLtc2974
+FaultLogLtc3880 *-- FaultLogPreambleLtc3880
+FaultLogLtc3880 *-- FaultLogReadLoopLtc3880
+FaultLogLtc2974 *-- FaultLogPreambleLtc2974
+
+' Dependencies
+LT_FaultLog --> LT_PMBus
+LT_PMBus --> LT_SMBus
+LT_3880FaultLog --> Lin16Word
+LT_3880FaultLog --> Lin5_11Word
+LT_3880FaultLog --> RawByte
+LT_3880FaultLog --> FaultLogTimeStamp
+
+' Strategy pattern flow
+LT_EEDataFaultLog --> LT_SMBus : "Direct EEPROM\nAccess via 0xBD/0xBF"
+LT_CommandPlusFaultLog --> LT_SMBus : "Command-Plus\nProtocol"
+
+note bottom
+    **Strategy Pattern Benefits:**
+    • Device-optimal access methods
+    • Uniform application interface  
+    • Hardware abstraction
+    • Extensible for new devices
+    
+    **EEPROM Strategy:** High capacity, persistent, detailed transient analysis
+    **Command Strategy:** Real-time, lower latency, multi-channel supervision
+end note
+
+@enduml

@@ -1,0 +1,586 @@
+@startuml PMBus_DPSM_Architecture
+
+!define LAYER_COLOR #E6F3FF
+!define HAL_COLOR #FFE6E6
+!define PROTOCOL_COLOR #E6FFE6
+!define DEVICE_COLOR #FFF0E6
+!define APP_COLOR #F0E6FF
+
+title PMBus DPSM - High-Level Architecture Overview
+
+package "Application Layer" LAYER_COLOR {
+    class LT_PMBusApp {
+        +main(argc, argv)
+        +loop()
+        +menu_1_basic_commands()
+        +menu_2_basic_commands()
+        +menu_3_basic_commands()
+        +print_all_voltages()
+        +print_all_currents()
+        +print_all_status()
+        +program_nvm()
+        +verify_nvm()
+    }
+}
+
+package "Device Abstraction Layer" DEVICE_COLOR {
+    abstract class LT_PMBusDevice {
+        #pmbus_: LT_PMBus*
+        #address_: uint8_t
+        #maxSpeed_: uint32_t
+        +{abstract} getNumPages(): uint8_t
+        +{abstract} getCapabilities(): uint32_t
+        +{abstract} hasCapability(capability): bool
+        +{abstract} getRails(): LT_PMBusRail**
+        +readVout(polling): float
+        +readIout(polling): float
+        +readVin(polling): float
+        +setVout(voltage): void
+        +enableFaultLog(): void
+        +clearFaultLog(): void
+    }
+
+    class LT_PMBusDeviceManager {
+        -no_pages_: uint8_t
+        +LT_PMBusDeviceManager(pmbus, address, no_pages)
+        +getRails(): LT_PMBusRail**
+        +setSpeed(speed): void
+    }
+
+    class LT_PMBusDeviceController {
+        -no_pages_: uint8_t
+        +LT_PMBusDeviceController(pmbus, address, no_pages)
+        +getRails(): LT_PMBusRail**
+    }
+
+    class LT_PMBusDeviceLTC2978 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t
+        +{static} detect(pmbus, address): LT_PMBusDevice*
+        +enableFaultLog(): void
+        +printFaultLog(): void
+    }
+
+    class LT_PMBusDeviceLTC3880 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t
+        +{static} detect(pmbus, address): LT_PMBusDevice*
+        +enableFaultLog(): void
+    }
+}
+
+package "Protocol Layer" PROTOCOL_COLOR {
+    class LT_PMBus {
+        -smbus_: LT_SMBusGroup*
+        +LT_PMBus(smbus: LT_SMBus*)
+        +deviceType(address): PsmDeviceType
+        +isLtc297x(address): bool
+        +setVout(address, voltage): void
+        +readVout(address): float
+        +enablePec(address): void
+        +resetGlobal(): void
+        +sequenceOnGlobal(): void
+        +marginHighGlobal(): void
+    }
+
+    class LT_PMBusDetect {
+        -pmbus_: LT_PMBus*
+        -devices_: LT_PMBusDevice**
+        -rails_: LT_PMBusRail**
+        +LT_PMBusDetect(pmbus: LT_PMBus*)
+        +detect(): void
+        +getDevices(): LT_PMBusDevice**
+        +getRails(): LT_PMBusRail**
+    }
+
+    class LT_PMBusRail {
+        -pmbus_: LT_PMBus*
+        -address_: uint8_t
+        -railDef_: tRailDef**
+        +getAddress(): uint8_t
+        +getNoPages(): uint8_t
+        +changePMBus(pmbus): void
+    }
+
+    enum PsmDeviceType {
+        LTC3880
+        LTC3882
+        LTC3882_1
+        LTC3883
+        ...
+        LTC2972
+        LTC2974
+        ...
+        LTM4664
+        LTM4675
+        ...
+        LTCUnknown
+    }
+}
+
+package "Hardware Abstraction Layer" HAL_COLOR {
+    abstract class LT_SMBus {
+        #pec_enabled_: bool
+        +{abstract} writeByte(address, command, data): int
+        +{abstract} readByte(address, command): uint8_t
+        +{abstract} writeWord(address, command, data): int
+        +{abstract} readWord(address, command): uint16_t
+        +{abstract} changeSpeed(speed): void
+        +{abstract} getSpeed(): uint32_t
+        +pecEnabled(): bool
+        +pecAdd(byte): void
+        +pecGet(): uint8_t
+    }
+
+    abstract class LT_SMBusBase {
+        +LT_SMBusBase()
+        +LT_SMBusBase(dev: char*)
+        +probe(startAddress): uint8_t*
+        +waitForAck(address, command): void
+    }
+
+    class LT_SMBusNoPec {
+        +LT_SMBusNoPec()
+        +LT_SMBusNoPec(dev: char*)
+        +writeByte(address, command, data): int
+        +readByte(address, command): uint8_t
+        +changeSpeed(speed): void
+    }
+
+    class LT_SMBusPec {
+        +LT_SMBusPec()
+        +LT_SMBusPec(dev: char*)
+        +writeByte(address, command, data): int
+        +readByte(address, command): uint8_t
+        +changeSpeed(speed): void
+    }
+
+    class LT_SMBusGroup {
+        -smbus_: LT_SMBus*
+        +LT_SMBusGroup(smbus: LT_SMBus*, speed: uint32_t)
+        +startGroupProtocol(): void
+        +executeGroupProtocol(): void
+        +writeByte(address, command, data): int
+        +readByte(address, command): uint8_t
+    }
+}
+
+' Inheritance relationships
+LT_PMBusDevice <|-- LT_PMBusDeviceManager
+LT_PMBusDevice <|-- LT_PMBusDeviceController
+LT_PMBusDeviceManager <|-- LT_PMBusDeviceLTC2978
+LT_PMBusDeviceController <|-- LT_PMBusDeviceLTC3880
+
+LT_SMBus <|-- LT_SMBusBase
+LT_SMBusBase <|-- LT_SMBusNoPec
+LT_SMBusBase <|-- LT_SMBusPec
+LT_SMBusBase <|-- LT_SMBusGroup
+
+' Composition relationships
+LT_PMBus *-- LT_SMBusGroup
+LT_PMBusDetect *-- LT_PMBus
+LT_PMBusDetect o-- LT_PMBusDevice
+LT_PMBusDevice *-- LT_PMBus
+LT_PMBusApp o-- LT_PMBusDetect
+LT_PMBusApp o-- LT_PMBus
+LT_PMBusApp o-- LT_SMBus
+
+' Usage relationships
+LT_PMBus ..> PsmDeviceType : uses
+LT_PMBusDetect ..> LT_PMBusRail : creates
+
+note top of LT_PMBusApp : Application Layer\nInteractive menu system\nCommand-line interface\nNVM programming
+
+note top of LT_PMBusDevice : Device Abstraction Layer\n27 supported devices\nCapability-based design\nFault logging abstraction
+
+note top of LT_PMBus : Protocol Layer\nPMBus command translation\nDevice type detection\nMathematical conversions
+
+note top of LT_SMBus : Hardware Abstraction Layer\nI2C/SMBus transactions\nPEC calculation\nHardware independence
+
+@enduml
+
+@startuml PMBus_Device_Hierarchy
+
+title PMBus Device Class Hierarchy
+
+abstract class LT_PMBusDevice {
+    #pmbus_: LT_PMBus*
+    #address_: uint8_t
+    #maxSpeed_: uint32_t
+    #model_[9]: uint8_t
+    +{abstract} getNumPages(): uint8_t
+    +{abstract} getCapabilities(): uint32_t
+    +{abstract} hasCapability(capability): bool
+    +{abstract} getRails(): LT_PMBusRail**
+    +readVout(polling): float
+    +readIout(polling): float
+    +enableFaultLog(): void
+    +clearFaultLog(): void
+    +printFaultLog(): void
+}
+
+class LT_PMBusDeviceManager {
+    -no_pages_: uint8_t
+    +LT_PMBusDeviceManager(pmbus, address, no_pages)
+    +getRails(): LT_PMBusRail**
+    +setSpeed(speed): void
+}
+
+class LT_PMBusDeviceController {
+    -no_pages_: uint8_t
+    +LT_PMBusDeviceController(pmbus, address, no_pages)
+    +getRails(): LT_PMBusRail**
+}
+
+package "Manager Devices (8 devices)" {
+    class LT_PMBusDeviceLTC2972 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 4
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    class LT_PMBusDeviceLTC2974 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 4
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    class LT_PMBusDeviceLTC2978 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 8
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    class LT_PMBusDeviceLTM2987 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 8
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    note top of LT_PMBusDeviceLTC2972 : LTC2972, LTC2974, LTC2975,\nLTC2977, LTC2978, LTC2979,\nLTC2980, LTM2987
+}
+
+package "Basic Controllers (9 devices)" {
+    class LT_PMBusDeviceLTC3880 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 2
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    class LT_PMBusDeviceLTC3882 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 2
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    class LT_PMBusDeviceLTM4675 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 2
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    note top of LT_PMBusDeviceLTC3880 : LTC3880, LTC3882, LTC3882_1,\nLTC3887, LTM4675, LTM4676,\nLTM4676A, LTM4677, LTM4686\n\nCapabilities: VOUT|VIN|IOUT|IIN|\nPOUT|TEMP|DC (No PIN)
+}
+
+package "Advanced Controllers (10 devices)" {
+    class LT_PMBusDeviceLTC3883 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 1
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    class LT_PMBusDeviceLTC3884 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 2
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    class LT_PMBusDeviceLTC7880 {
+        +{static} cap_: uint32_t
+        +getCapabilities(): uint32_t
+        +getNumPages(): uint8_t = 2
+        +{static} detect(): LT_PMBusDevice*
+    }
+
+    note top of LT_PMBusDeviceLTC3883 : LTC3883, LTC3884, LTC3886,\nLTC3888, LTC3889, LTC7880,\nLTM4664, LTM4678, LTM4680, LTM4700\n\nCapabilities: VOUT|VIN|IOUT|IIN|\nPOUT|PIN|TEMP|DC
+}
+
+' Inheritance relationships
+LT_PMBusDevice <|-- LT_PMBusDeviceManager
+LT_PMBusDevice <|-- LT_PMBusDeviceController
+
+LT_PMBusDeviceManager <|-- LT_PMBusDeviceLTC2972
+LT_PMBusDeviceManager <|-- LT_PMBusDeviceLTC2974
+LT_PMBusDeviceManager <|-- LT_PMBusDeviceLTC2978
+LT_PMBusDeviceManager <|-- LT_PMBusDeviceLTM2987
+
+LT_PMBusDeviceController <|-- LT_PMBusDeviceLTC3880
+LT_PMBusDeviceController <|-- LT_PMBusDeviceLTC3882
+LT_PMBusDeviceController <|-- LT_PMBusDeviceLTM4675
+
+LT_PMBusDeviceController <|-- LT_PMBusDeviceLTC3883
+LT_PMBusDeviceController <|-- LT_PMBusDeviceLTC3884
+LT_PMBusDeviceController <|-- LT_PMBusDeviceLTC7880
+
+@enduml
+
+@startuml PMBus_SMBus_Hierarchy
+
+title SMBus Hardware Abstraction Layer
+
+abstract class LT_SMBus {
+    #pec_enabled_: bool
+    #running_pec_: uint8_t
+    #poly_: uint8_t
+    #crc_polynomial_: uint16_t
+    +{abstract} writeByte(address, command, data): int
+    +{abstract} readByte(address, command): uint8_t
+    +{abstract} writeWord(address, command, data): int
+    +{abstract} readWord(address, command): uint16_t
+    +{abstract} readBlock(address, command, data): int
+    +{abstract} writeBlock(address, command, data, length): int
+    +{abstract} changeSpeed(speed): void
+    +{abstract} getSpeed(): uint32_t
+    +{abstract} readAlert(): int
+    +pecEnabled(): bool
+    +pecClear(): void
+    +pecAdd(byte): void
+    +pecGet(): uint8_t
+    +calculate(data, value, start, length): uint8_t
+}
+
+abstract class LT_SMBusBase {
+    #file_desc_: int
+    #speed_: uint32_t
+    #timeout_: uint16_t
+    +LT_SMBusBase()
+    +LT_SMBusBase(dev: char*)
+    +LT_SMBusBase(speed: uint32_t)
+    +~LT_SMBusBase()
+    +probe(startAddress): uint8_t*
+    +waitForAck(address, command): void
+    +changeSpeed(speed): void
+    +getSpeed(): uint32_t
+    #openI2CBus(dev: char*): void
+    #closeI2CBus(): void
+}
+
+class LT_SMBusNoPec {
+    +LT_SMBusNoPec()
+    +LT_SMBusNoPec(dev: char*)
+    +LT_SMBusNoPec(speed: uint32_t)
+    +writeByte(address, command, data): int
+    +readByte(address, command): uint8_t
+    +writeWord(address, command, data): int
+    +readWord(address, command): uint16_t
+    +writeBlock(address, command, data, length): int
+    +readBlock(address, command, data): int
+    +readAlert(): int
+}
+
+class LT_SMBusPec {
+    +LT_SMBusPec()
+    +LT_SMBusPec(dev: char*)
+    +LT_SMBusPec(speed: uint32_t)
+    +writeByte(address, command, data): int
+    +readByte(address, command): uint8_t
+    +writeWord(address, command, data): int
+    +readWord(address, command): uint16_t
+    +writeBlock(address, command, data, length): int
+    +readBlock(address, command, data): int
+    +readAlert(): int
+}
+
+class LT_SMBusGroup {
+    -smbus_: LT_SMBus*
+    -speed_: uint32_t
+    -group_protocol_: bool
+    +LT_SMBusGroup(smbus: LT_SMBus*, speed: uint32_t)
+    +~LT_SMBusGroup()
+    +startGroupProtocol(): void
+    +executeGroupProtocol(): void
+    +writeByte(address, command, data): int
+    +readByte(address, command): uint8_t
+    +writeWord(address, command, data): int
+    +readWord(address, command): uint16_t
+    +changeSpeed(speed): void
+    +getSpeed(): uint32_t
+    +readAlert(): int
+}
+
+' Inheritance relationships
+LT_SMBus <|-- LT_SMBusBase
+LT_SMBusBase <|-- LT_SMBusNoPec
+LT_SMBusBase <|-- LT_SMBusPec
+LT_SMBusBase <|-- LT_SMBusGroup
+
+' Composition relationship
+LT_SMBusGroup *-- LT_SMBus : delegates to
+
+note right of LT_SMBusNoPec : Strategy Pattern:\nNo Packet Error Checking\nFaster communication\nLower reliability
+
+note right of LT_SMBusPec : Strategy Pattern:\nWith Packet Error Checking\nSlower communication\nHigher reliability
+
+note right of LT_SMBusGroup : Strategy Pattern:\nGroup/Broadcast operations\nTransaction batching\nMulti-device coordination
+
+note top of LT_SMBusBase : Template Method Pattern:\nCommon I2C operations\nHardware abstraction\nLinux /dev/i2c interface
+
+@enduml
+
+@startuml PMBus_Fault_Logging
+
+title Fault Logging Architecture
+
+abstract class LT_FaultLog {
+    #pmbus_: LT_PMBus*
+    +LT_FaultLog(pmbus: LT_PMBus*)
+    +{abstract} read(address): void
+    +{abstract} print(): void
+    +{abstract} clearFaultLog(address): void
+    +{abstract} enableFaultLog(address): void
+    +{abstract} disableFaultLog(address): void
+    +{abstract} hasFaultLog(address): bool
+    +{abstract} storeFaultLog(address): void
+    +release(): void
+}
+
+class LT_EEDataFaultLog {
+    +LT_EEDataFaultLog(pmbus: LT_PMBus*)
+    +read(address): void
+    +print(): void
+    +clearFaultLog(address): void
+    +enableFaultLog(address): void
+    +disableFaultLog(address): void
+    +hasFaultLog(address): bool
+    +storeFaultLog(address): void
+    +dumpBinary(): void
+}
+
+class LT_CommandPlusFaultLog {
+    +LT_CommandPlusFaultLog(pmbus: LT_PMBus*)
+    +read(address): void
+    +print(): void
+    +clearFaultLog(address): void
+    +enableFaultLog(address): void
+    +disableFaultLog(address): void
+    +hasFaultLog(address): bool
+    +storeFaultLog(address): void
+}
+
+package "EEPROM-based Fault Logs" {
+    class LT_3880FaultLog {
+        +LT_3880FaultLog(pmbus: LT_PMBus*)
+    }
+
+    class LT_3883FaultLog {
+        +LT_3883FaultLog(pmbus: LT_PMBus*)
+    }
+
+    class LT_2978FaultLog {
+        +LT_2978FaultLog(pmbus: LT_PMBus*)
+    }
+
+    note top of LT_3880FaultLog : Controller Devices:\nLTC3880, LTC3882, LTC3883,\nLTC3884, LTC3886, LTC3887,\nLTC3888, LTC3889, LTC7880,\nLTM4xxx series\n\nEEPROM-based storage\nBinary fault data format
+}
+
+package "Command-based Fault Logs" {
+    class LT_2972FaultLog {
+        +LT_2972FaultLog(pmbus: LT_PMBus*)
+    }
+
+    class LT_2974FaultLog {
+        +LT_2974FaultLog(pmbus: LT_PMBus*)
+    }
+
+    class LT_2977FaultLog {
+        +LT_2977FaultLog(pmbus: LT_PMBus*)
+    }
+
+    note top of LT_2972FaultLog : Manager Devices:\nLTC2972, LTC2974, LTC2975,\nLTC2977, LTC2979, LTC2980,\nLTM2987\n\nCommand-based access\nStructured fault records
+}
+
+' Inheritance relationships
+LT_FaultLog <|-- LT_EEDataFaultLog
+LT_FaultLog <|-- LT_CommandPlusFaultLog
+
+LT_EEDataFaultLog <|-- LT_3880FaultLog
+LT_EEDataFaultLog <|-- LT_3883FaultLog
+LT_EEDataFaultLog <|-- LT_2978FaultLog
+
+LT_CommandPlusFaultLog <|-- LT_2972FaultLog
+LT_CommandPlusFaultLog <|-- LT_2974FaultLog
+LT_CommandPlusFaultLog <|-- LT_2977FaultLog
+
+' Usage relationships
+LT_3880FaultLog ..> LT_PMBus : uses
+LT_2972FaultLog ..> LT_PMBus : uses
+
+note top of LT_EEDataFaultLog : Strategy Pattern:\nEEPROM-based fault storage\nBinary data format\nDirect memory access
+
+note top of LT_CommandPlusFaultLog : Strategy Pattern:\nCommand-based fault access\nStructured data format\nPMBus command interface
+
+@enduml
+
+@startuml PMBus_Detection_Sequence
+
+title Device Detection and Instantiation Sequence
+
+actor Application
+participant LT_PMBusDetect
+participant LT_PMBus
+participant LT_SMBus
+participant "Device Factory"
+participant LT_PMBusDevice
+
+Application -> LT_PMBusDetect: new LT_PMBusDetect(pmbus)
+Application -> LT_PMBusDetect: detect()
+
+LT_PMBusDetect -> LT_SMBus: probe(0)
+LT_SMBus --> LT_PMBusDetect: addresses[]
+
+loop for each address in addresses[]
+    LT_PMBusDetect -> LT_PMBus: getMfrSpecialId(address)
+    LT_PMBus -> LT_SMBus: readWord(address, MFR_SPECIAL_ID)
+    LT_SMBus --> LT_PMBus: device_id
+    LT_PMBus --> LT_PMBusDetect: device_id
+
+    LT_PMBusDetect -> "Device Factory": tryDetectDevice(pmbus, address)
+
+    alt device_id == 0x4020
+        "Device Factory" -> LT_PMBusDeviceLTC3880: detect(pmbus, address)
+        LT_PMBusDeviceLTC3880 -> LT_PMBusDeviceLTC3880: new LT_PMBusDeviceLTC3880()
+        LT_PMBusDeviceLTC3880 -> LT_PMBusDevice: probeSpeed()
+        LT_PMBusDeviceLTC3880 --> "Device Factory": device_instance
+    else device_id == 0x0110
+        "Device Factory" -> LT_PMBusDeviceLTC2978: detect(pmbus, address)
+        LT_PMBusDeviceLTC2978 -> LT_PMBusDeviceLTC2978: new LT_PMBusDeviceLTC2978()
+        LT_PMBusDeviceLTC2978 -> LT_PMBusDevice: probeSpeed()
+        LT_PMBusDeviceLTC2978 --> "Device Factory": device_instance
+    else device_id == unknown
+        "Device Factory" --> LT_PMBusDetect: NULL
+    end
+
+    "Device Factory" --> LT_PMBusDetect: device_instance
+    LT_PMBusDetect -> LT_PMBusDetect: devices_[deviceCnt_++] = device
+end
+
+LT_PMBusDetect --> Application: detection complete
+Application -> LT_PMBusDetect: getDevices()
+LT_PMBusDetect --> Application: devices[]
+
+note right of "Device Factory" : Factory Pattern:\nDevice creation based on\nhardware ID detection\n\nSupports 27 device types\nAutomatic capability detection
+
+note right of LT_PMBusDevice : Template Method:\nCommon initialization\nSpeed probing\nCapability setup
+
+@enduml

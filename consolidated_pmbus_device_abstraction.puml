@@ -1,0 +1,627 @@
+@startuml PMBus_Device_Abstraction_Layer_Hybrid_Model
+
+!define INTERFACE_COLOR #E1F5FE
+!define STRUCT_COLOR #F3E5F5
+!define ENUM_COLOR #E8F5E8
+!define IMPL_COLOR #FFF3E0
+!define UTIL_COLOR #F0F4C3
+!define HYBRID_COLOR #FCE4EC
+!define GENERIC_COLOR #E3F2FD
+!define SPECIFIC_COLOR #FFF8E1
+
+title PMBus Device Abstraction Layer - Hybrid Model
+
+package "Core Device Abstractions" {
+
+    enum pmbus_device_type ENUM_COLOR {
+        PMBUS_TYPE_GENERIC
+        PMBUS_TYPE_LINEAR_TECHNOLOGY
+        PMBUS_TYPE_ANALOG_DEVICES
+        PMBUS_TYPE_TEXAS_INSTRUMENTS
+        PMBUS_TYPE_MAXIM_INTEGRATED
+        PMBUS_TYPE_INFINEON
+        PMBUS_TYPE_INTERSIL
+        PMBUS_TYPE_MICROCHIP
+        PMBUS_TYPE_ON_SEMICONDUCTOR
+        PMBUS_TYPE_RENESAS
+        PMBUS_TYPE_ROHM
+        PMBUS_TYPE_ST_MICROELECTRONICS
+        PMBUS_TYPE_CUSTOM
+    }
+
+    enum pmbus_device_class ENUM_COLOR {
+        PMBUS_CLASS_CONTROLLER
+        PMBUS_CLASS_HOT_SWAP_CONTROLLER
+        PMBUS_CLASS_SEQUENCER
+        PMBUS_CLASS_SUPERVISOR
+        PMBUS_CLASS_REGULATOR
+        PMBUS_CLASS_DC_DC_CONVERTER
+        PMBUS_CLASS_POWER_MODULE
+        PMBUS_CLASS_DIGITAL_MULTIPHASE
+        PMBUS_CLASS_ISOLATED_CONVERTER
+        PMBUS_CLASS_BATTERY_CHARGER
+        PMBUS_CLASS_LED_DRIVER
+        PMBUS_CLASS_MOTOR_CONTROLLER
+        PMBUS_CLASS_MONITOR_ONLY
+        PMBUS_CLASS_PROTECTION_DEVICE
+        PMBUS_CLASS_HYBRID
+    }
+
+    enum pmbus_optimization_level ENUM_COLOR {
+        PMBUS_OPT_GENERIC
+        PMBUS_OPT_VENDOR_SPECIFIC
+        PMBUS_OPT_DEVICE_SPECIFIC
+        PMBUS_OPT_PERFORMANCE_CRITICAL
+        PMBUS_OPT_MAXIMUM
+    }
+
+    struct pmbus_device_descriptor STRUCT_COLOR {
+        +device_type: pmbus_device_type
+        +device_class: pmbus_device_class
+        +manufacturer_id: uint16_t
+        +device_id: uint16_t
+        +revision_mask: uint16_t
+        +revision_value: uint16_t
+        +device_name: char[32]
+        +manufacturer_name: char[16]
+        +family_name: char[16]
+        +datasheet_revision: char[8]
+        +silicon_revision: uint8_t
+        +package_type: char[16]
+        +temperature_grade: char[8]
+        +optimization_level: pmbus_optimization_level
+        +feature_set: uint64_t
+        +power_rating_mw: uint32_t
+        +voltage_rating_mv: uint32_t
+        +current_rating_ma: uint32_t
+        +switching_frequency_khz: uint32_t
+        +efficiency_percent_x100: uint16_t
+        +thermal_resistance_cw: uint16_t
+    }
+
+    interface pmbus_device_base INTERFACE_COLOR {
+        +get_descriptor(): pmbus_device_descriptor*
+        +initialize(config: pmbus_device_config*): int
+        +finalize(): int
+        +reset(reset_type: pmbus_reset_type): int
+        +self_test(): int
+        +get_device_info(info: pmbus_device_info*): int
+        +get_capabilities(caps: pmbus_capability_info*): int
+        +validate_configuration(config: pmbus_device_config*): int
+        +apply_configuration(config: pmbus_device_config*): int
+        +get_status_summary(status: pmbus_status_summary*): int
+        +handle_alert(alert_info: pmbus_alert_info*): int
+        +enter_standby(): int
+        +exit_standby(): int
+        +save_user_config(): int
+        +restore_user_config(): int
+        +restore_factory_defaults(): int
+        +get_reference_count(): int
+        +add_reference(): int
+        +release_reference(): int
+    }
+
+    struct pmbus_status_summary STRUCT_COLOR {
+        +overall_health: pmbus_health_status
+        +fault_count: uint16_t
+        +warning_count: uint16_t
+        +critical_faults: uint32_t
+        +active_warnings: uint32_t
+        +temperature_status: pmbus_temp_status
+        +power_status: pmbus_power_status
+        +communication_status: pmbus_comm_status
+        +last_fault_time: uint32_t
+        +uptime_seconds: uint32_t
+        +reset_count: uint16_t
+    }
+
+}
+
+package "Generic Device Implementation" {
+
+    class pmbus_generic_device GENERIC_COLOR {
+        +base_device: pmbus_device
+        +descriptor: pmbus_device_descriptor
+        +protocol_engine: pmbus_protocol_engine*
+        +command_processor: pmbus_command_processor*
+        +telemetry_manager: pmbus_telemetry_manager*
+        +fault_handler: pmbus_fault_handler*
+        +config_manager: pmbus_config_manager*
+        +performance_monitor: pmbus_performance_monitor*
+        --
+        +get_descriptor(): pmbus_device_descriptor*
+        +initialize(config: pmbus_device_config*): int
+        +finalize(): int
+        +reset(reset_type: pmbus_reset_type): int
+        +self_test(): int
+        +get_device_info(info: pmbus_device_info*): int
+        +get_capabilities(caps: pmbus_capability_info*): int
+        +validate_configuration(config: pmbus_device_config*): int
+        +apply_configuration(config: pmbus_device_config*): int
+        +get_status_summary(status: pmbus_status_summary*): int
+        +handle_alert(alert_info: pmbus_alert_info*): int
+        +read_telemetry(telemetry: pmbus_telemetry*): int
+        +write_command(cmd: uint8_t, data: uint8_t*, length: uint8_t): int
+        +read_command(cmd: uint8_t, data: uint8_t*, length: uint8_t*): int
+        +set_page(page: uint8_t): int
+        +get_page(): uint8_t
+        +enable_pec(enable: bool): int
+        +configure_limits(limits: pmbus_limit_config*): int
+        +configure_sequencing(seq: pmbus_sequence_config*): int
+        +configure_protection(prot: pmbus_protection_config*): int
+        -execute_generic_command(ctx: pmbus_command_context*): int
+        -validate_generic_limits(limits: pmbus_limit_config*): bool
+        -handle_generic_fault(fault_mask: uint32_t): int
+    }
+
+    struct pmbus_limit_config STRUCT_COLOR {
+        +voltage_out_ov_limit: int32_t
+        +voltage_out_uv_limit: int32_t
+        +current_out_oc_limit: int32_t
+        +power_out_op_limit: int32_t
+        +temperature_ot_limit: int32_t
+        +voltage_in_ov_limit: int32_t
+        +voltage_in_uv_limit: int32_t
+        +current_in_oc_limit: int32_t
+        +power_in_op_limit: int32_t
+        +fan_speed_low_limit: int32_t
+        +enable_ov_protection: bool
+        +enable_uv_protection: bool
+        +enable_oc_protection: bool
+        +enable_op_protection: bool
+        +enable_ot_protection: bool
+        +fault_response: pmbus_fault_response
+        +warning_response: pmbus_warning_response
+    }
+
+    struct pmbus_sequence_config STRUCT_COLOR {
+        +startup_delay_ms: uint16_t
+        +shutdown_delay_ms: uint16_t
+        +power_up_sequence: uint8_t[16]
+        +power_down_sequence: uint8_t[16]
+        +sequence_length: uint8_t
+        +enable_sequencing: bool
+        +sequence_on_fault: bool
+        +restart_delay_ms: uint16_t
+        +max_restart_attempts: uint8_t
+        +enable_soft_start: bool
+        +soft_start_rate: uint16_t
+    }
+
+    struct pmbus_protection_config STRUCT_COLOR {
+        +enable_write_protection: bool
+        +enable_blackbox_recording: bool
+        +fault_log_size: uint16_t
+        +enable_brownout_protection: bool
+        +enable_phase_management: bool
+        +enable_load_sharing: bool
+        +enable_current_balancing: bool
+        +enable_thermal_management: bool
+        +protection_mask: uint32_t
+        +warning_mask: uint32_t
+        +critical_fault_mask: uint32_t
+    }
+
+    class pmbus_config_manager UTIL_COLOR {
+        +device: pmbus_generic_device*
+        +active_config: pmbus_device_config
+        +factory_config: pmbus_device_config
+        +user_config: pmbus_device_config
+        +config_storage: pmbus_config_storage*
+        --
+        +load_factory_config(): int
+        +load_user_config(): int
+        +save_user_config(): int
+        +validate_config(config: pmbus_device_config*): int
+        +apply_config(config: pmbus_device_config*): int
+        +get_config_diff(config1: pmbus_device_config*, \n                config2: pmbus_device_config*, \n                diff: pmbus_config_diff*): int
+        +backup_config(): int
+        +restore_backup(): int
+        +get_config_checksum(config: pmbus_device_config*): uint32_t
+        +export_config(buffer: uint8_t*, size: size_t*): int
+        +import_config(buffer: uint8_t*, size: size_t): int
+    }
+
+    class pmbus_performance_monitor UTIL_COLOR {
+        +device: pmbus_generic_device*
+        +statistics: pmbus_device_statistics
+        +benchmark_data: pmbus_benchmark_data
+        +profiling_enabled: bool
+        --
+        +start_profiling(): int
+        +stop_profiling(): int
+        +get_statistics(stats: pmbus_device_statistics*): int
+        +reset_statistics(): int
+        +benchmark_command(cmd: uint8_t, iterations: uint32_t): int
+        +get_benchmark_results(results: pmbus_benchmark_results*): int
+        +set_performance_targets(targets: pmbus_performance_targets*): int
+        +check_performance_compliance(): bool
+        -update_command_statistics(cmd: uint8_t, duration: uint32_t): void
+        -analyze_performance_trends(): void
+    }
+
+}
+
+package "Device-Specific Implementations" {
+
+    abstract class pmbus_vendor_device SPECIFIC_COLOR {
+        +generic_base: pmbus_generic_device
+        +vendor_extensions: pmbus_vendor_extensions*
+        +vendor_commands: pmbus_vendor_command_set*
+        +vendor_data_formats: pmbus_vendor_data_formats*
+        +calibration_data: pmbus_calibration_data*
+        --
+        #{abstract} get_vendor_descriptor(): pmbus_vendor_descriptor*
+        #{abstract} init_vendor_specific(): int
+        #{abstract} execute_vendor_command(ctx: pmbus_command_context*): int
+        #{abstract} handle_vendor_fault(fault_code: uint32_t): int
+        #{abstract} apply_vendor_calibration(cal_data: pmbus_calibration_data*): int
+        +get_vendor_command_table(): pmbus_cmd_desc*
+        +validate_vendor_limits(limits: pmbus_limit_config*): bool
+        +configure_vendor_protection(prot: pmbus_protection_config*): int
+        +read_vendor_telemetry(telemetry: pmbus_vendor_telemetry*): int
+        +write_vendor_register(reg: uint16_t, value: uint32_t): int
+        +read_vendor_register(reg: uint16_t, value: uint32_t*): int
+        -merge_command_tables(): int
+        -validate_vendor_extensions(): int
+    }
+
+    class pmbus_linear_technology_device SPECIFIC_COLOR {
+        +vendor_base: pmbus_vendor_device
+        +lt_specific_data: lt_device_specific_data
+        +fault_log_manager: lt_fault_log_manager*
+        +telemetry_engine: lt_telemetry_engine*
+        --
+        +get_vendor_descriptor(): pmbus_vendor_descriptor*
+        +init_vendor_specific(): int
+        +execute_vendor_command(ctx: pmbus_command_context*): int
+        +handle_vendor_fault(fault_code: uint32_t): int
+        +apply_vendor_calibration(cal_data: pmbus_calibration_data*): int
+        +read_fault_log(records: lt_fault_record*, count: size_t*): int
+        +clear_fault_log(): int
+        +configure_switching_frequency(freq_khz: uint32_t): int
+        +configure_phase_management(phases: uint8_t, \n                           interleaving: bool): int
+        +read_efficiency_data(efficiency: lt_efficiency_data*): int
+        +configure_droop_compensation(droop: lt_droop_config*): int
+        +read_peak_current(peak_current: int32_t*): int
+        +configure_sync_settings(sync: lt_sync_config*): int
+        -lt_convert_linear_data(raw: uint16_t, mantissa_bits: uint8_t): int32_t
+        -lt_validate_switching_frequency(freq: uint32_t): bool
+        -lt_handle_vin_fault(fault_data: uint16_t): int
+        -lt_handle_thermal_fault(temp_data: uint16_t): int
+    }
+
+    class pmbus_analog_devices_device SPECIFIC_COLOR {
+        +vendor_base: pmbus_vendor_device
+        +adi_specific_data: adi_device_specific_data
+        +power_stage_manager: adi_power_stage_manager*
+        +loop_compensation: adi_loop_compensation*
+        --
+        +get_vendor_descriptor(): pmbus_vendor_descriptor*
+        +init_vendor_specific(): int
+        +execute_vendor_command(ctx: pmbus_command_context*): int
+        +handle_vendor_fault(fault_code: uint32_t): int
+        +apply_vendor_calibration(cal_data: pmbus_calibration_data*): int
+        +configure_power_stages(config: adi_power_stage_config*): int
+        +read_power_stage_telemetry(telemetry: adi_power_stage_telemetry*): int
+        +configure_loop_compensation(comp: adi_loop_compensation_config*): int
+        +read_loop_stability_data(stability: adi_stability_data*): int
+        +configure_spread_spectrum(config: adi_spread_spectrum_config*): int
+        +read_inductor_dcr(dcr_mohm: uint16_t*): int
+        +configure_current_sensing(config: adi_current_sense_config*): int
+        +read_temperature_sensors(temps: adi_temperature_array*): int
+        -adi_convert_direct_data(raw: uint16_t, coeffs: adi_direct_coeffs*): int32_t
+        -adi_optimize_loop_response(): int
+        -adi_handle_power_stage_fault(stage: uint8_t, fault_type: uint32_t): int
+        -adi_calculate_efficiency(): int32_t
+    }
+
+    class pmbus_texas_instruments_device SPECIFIC_COLOR {
+        +vendor_base: pmbus_vendor_device
+        +ti_specific_data: ti_device_specific_data
+        +fusion_manager: ti_fusion_manager*
+        +nonvolatile_manager: ti_nonvolatile_manager*
+        --
+        +get_vendor_descriptor(): pmbus_vendor_descriptor*
+        +init_vendor_specific(): int
+        +execute_vendor_command(ctx: pmbus_command_context*): int
+        +handle_vendor_fault(fault_code: uint32_t): int
+        +apply_vendor_calibration(cal_data: pmbus_calibration_data*): int
+        +configure_fusion_parameters(params: ti_fusion_params*): int
+        +read_fusion_telemetry(telemetry: ti_fusion_telemetry*): int
+        +program_nonvolatile_memory(nvm_data: ti_nvm_data*): int
+        +read_nonvolatile_memory(nvm_data: ti_nvm_data*): int
+        +configure_advanced_features(features: ti_advanced_features*): int
+        +read_pin_status(pin_status: ti_pin_status*): int
+        +configure_gpio_functions(gpio_config: ti_gpio_config*): int
+        +read_current_sharing_data(sharing: ti_current_sharing_data*): int
+        -ti_handle_fusion_fault(fusion_fault: uint32_t): int
+        -ti_validate_nvm_integrity(): bool
+        -ti_configure_adaptive_control(): int
+        -ti_read_switching_node_data(): int
+    }
+
+}
+
+package "Hybrid Device Factory" {
+
+    struct pmbus_device_capabilities STRUCT_COLOR {
+        +has_paging: bool
+        +max_pages: uint8_t
+        +has_pec_support: bool
+        +has_group_commands: bool
+        +has_process_call: bool
+        +has_block_process_call: bool
+        +has_smbus_arp: bool
+        +has_host_notify: bool
+        +supports_linear11: bool
+        +supports_linear16: bool
+        +supports_direct: bool
+        +supports_ieee754: bool
+        +supports_vid: bool
+        +max_current_ma: uint32_t
+        +max_voltage_mv: uint32_t
+        +max_power_mw: uint32_t
+        +switching_frequency_range: pmbus_frequency_range
+        +temperature_range: pmbus_temperature_range
+        +vendor_specific_commands: uint16_t
+        +standard_commands: uint32_t[8]
+        +telemetry_update_rate_ms: uint16_t
+    }
+
+    struct pmbus_device_creation_context STRUCT_COLOR {
+        +transport: pmbus_transport*
+        +address: uint8_t
+        +device_info: pmbus_device_info
+        +capabilities: pmbus_device_capabilities
+        +optimization_level: pmbus_optimization_level
+        +vendor_preference: pmbus_device_type
+        +creation_flags: uint32_t
+        +user_data: void*
+        +callback: pmbus_device_creation_callback
+    }
+
+    class pmbus_hybrid_device_factory HYBRID_COLOR {
+        +generic_factory: pmbus_generic_factory*
+        +vendor_factories: pmbus_vendor_factory*[PMBUS_MAX_VENDORS]
+        +vendor_count: size_t
+        +device_registry: pmbus_device_registry*
+        +optimization_engine: pmbus_optimization_engine*
+        +creation_history: pmbus_creation_history*
+        --
+        +create_device(ctx: pmbus_device_creation_context*): pmbus_device_base*
+        +create_optimal_device(ctx: pmbus_device_creation_context*): pmbus_device_base*
+        +destroy_device(device: pmbus_device_base*): int
+        +register_vendor_factory(vendor: pmbus_device_type, \n                        factory: pmbus_vendor_factory*): int
+        +unregister_vendor_factory(vendor: pmbus_device_type): int
+        +get_optimal_device_type(ctx: pmbus_device_creation_context*): pmbus_device_type
+        +benchmark_device_types(ctx: pmbus_device_creation_context*): pmbus_benchmark_results*
+        +clone_device(source: pmbus_device_base*, \n             new_context: pmbus_device_creation_context*): pmbus_device_base*
+        +migrate_device(device: pmbus_device_base*, \n               new_type: pmbus_device_type): pmbus_device_base*
+        +validate_device_creation(ctx: pmbus_device_creation_context*): int
+        -determine_optimal_implementation(ctx: pmbus_device_creation_context*): pmbus_device_type
+        -create_generic_device(ctx: pmbus_device_creation_context*): pmbus_generic_device*
+        -create_vendor_device(ctx: pmbus_device_creation_context*, \n                     vendor: pmbus_device_type): pmbus_vendor_device*
+        -profile_device_performance(device: pmbus_device_base*): pmbus_performance_profile*
+    }
+
+    class pmbus_optimization_engine UTIL_COLOR {
+        +performance_database: pmbus_performance_database*
+        +optimization_history: pmbus_optimization_history*
+        +learning_algorithm: pmbus_learning_algorithm*
+        --
+        +analyze_workload(workload: pmbus_workload_profile*): pmbus_optimization_recommendation*
+        +recommend_device_type(requirements: pmbus_device_requirements*): pmbus_device_type
+        +benchmark_implementations(ctx: pmbus_device_creation_context*): pmbus_benchmark_matrix*
+        +learn_from_usage(device: pmbus_device_base*, \n                 usage_data: pmbus_usage_data*): int
+        +predict_performance(device_type: pmbus_device_type, \n                    workload: pmbus_workload_profile*): pmbus_performance_prediction*
+        +optimize_device_configuration(device: pmbus_device_base*): pmbus_device_config*
+        +get_optimization_history(filter: pmbus_optimization_filter*): pmbus_optimization_record*
+        +update_performance_model(model_data: pmbus_performance_model_data*): int
+        -calculate_performance_score(metrics: pmbus_performance_metrics*): int32_t
+        -generate_optimization_strategy(analysis: pmbus_workload_analysis*): pmbus_optimization_strategy*
+    }
+
+    interface pmbus_vendor_factory INTERFACE_COLOR {
+        +create_device(ctx: pmbus_device_creation_context*): pmbus_vendor_device*
+        +destroy_device(device: pmbus_vendor_device*): int
+        +get_vendor_capabilities(): pmbus_vendor_capabilities*
+        +validate_device_support(info: pmbus_device_info*): bool
+        +get_optimization_parameters(): pmbus_optimization_params*
+        +benchmark_performance(ctx: pmbus_device_creation_context*): pmbus_performance_metrics*
+    }
+
+    class pmbus_linear_technology_factory SPECIFIC_COLOR {
+        +supported_devices: lt_device_descriptor[LT_MAX_SUPPORTED_DEVICES]
+        +device_count: size_t
+        +fault_log_templates: lt_fault_log_template[LT_MAX_DEVICE_TYPES]
+        --
+        +create_device(ctx: pmbus_device_creation_context*): pmbus_vendor_device*
+        +destroy_device(device: pmbus_vendor_device*): int
+        +get_vendor_capabilities(): pmbus_vendor_capabilities*
+        +validate_device_support(info: pmbus_device_info*): bool
+        +get_optimization_parameters(): pmbus_optimization_params*
+        +benchmark_performance(ctx: pmbus_device_creation_context*): pmbus_performance_metrics*
+        +register_lt_device(descriptor: lt_device_descriptor*): int
+        +create_lt2972_device(ctx: pmbus_device_creation_context*): pmbus_linear_technology_device*
+        +create_lt2974_device(ctx: pmbus_device_creation_context*): pmbus_linear_technology_device*
+        +create_lt2977_device(ctx: pmbus_device_creation_context*): pmbus_linear_technology_device*
+        -lt_configure_device_specific_features(device: pmbus_linear_technology_device*, \n                                       device_id: uint16_t): int
+        -lt_setup_fault_logging(device: pmbus_linear_technology_device*, \n                       device_id: uint16_t): int
+    }
+
+}
+
+package "Device Lifecycle Management" {
+
+    enum pmbus_device_state ENUM_COLOR {
+        PMBUS_STATE_UNKNOWN
+        PMBUS_STATE_CREATED
+        PMBUS_STATE_INITIALIZING
+        PMBUS_STATE_READY
+        PMBUS_STATE_ACTIVE
+        PMBUS_STATE_ERROR
+        PMBUS_STATE_MAINTENANCE
+        PMBUS_STATE_STANDBY
+        PMBUS_STATE_SHUTDOWN
+        PMBUS_STATE_DESTROYED
+    }
+
+    struct pmbus_device_lifecycle STRUCT_COLOR {
+        +device: pmbus_device_base*
+        +current_state: pmbus_device_state
+        +previous_state: pmbus_device_state
+        +state_change_count: uint32_t
+        +creation_time: uint32_t
+        +last_state_change_time: uint32_t
+        +total_active_time: uint32_t
+        +error_count: uint32_t
+        +maintenance_count: uint32_t
+        +lifecycle_callbacks: pmbus_lifecycle_callbacks*
+        +state_history: pmbus_state_history_entry[PMBUS_STATE_HISTORY_SIZE]
+        +history_index: size_t
+    }
+
+    class pmbus_device_manager UTIL_COLOR {
+        +managed_devices: pmbus_device_lifecycle[PMBUS_MAX_MANAGED_DEVICES]
+        +device_count: size_t
+        +lifecycle_monitor: pmbus_lifecycle_monitor*
+        +health_monitor: pmbus_health_monitor*
+        +maintenance_scheduler: pmbus_maintenance_scheduler*
+        --
+        +register_device(device: pmbus_device_base*): int
+        +unregister_device(device: pmbus_device_base*): int
+        +get_device_state(device: pmbus_device_base*): pmbus_device_state
+        +transition_device_state(device: pmbus_device_base*, \n                        new_state: pmbus_device_state): int
+        +get_device_lifecycle(device: pmbus_device_base*): pmbus_device_lifecycle*
+        +schedule_maintenance(device: pmbus_device_base*, \n                     maintenance_type: pmbus_maintenance_type): int
+        +perform_health_check(device: pmbus_device_base*): pmbus_health_status
+        +get_device_statistics(device: pmbus_device_base*): pmbus_device_statistics*
+        +shutdown_all_devices(): int
+        +get_devices_by_state(state: pmbus_device_state): pmbus_device_base**
+        +get_devices_by_type(device_type: pmbus_device_type): pmbus_device_base**
+        +get_devices_by_vendor(vendor: pmbus_device_type): pmbus_device_base**
+        -validate_state_transition(current: pmbus_device_state, \n                          new_state: pmbus_device_state): bool
+        -notify_state_change(device: pmbus_device_base*, \n                    old_state: pmbus_device_state, \n                    new_state: pmbus_device_state): void
+    }
+
+    class pmbus_health_monitor UTIL_COLOR {
+        +monitored_devices: pmbus_device_base*[PMBUS_MAX_MONITORED_DEVICES]
+        +device_count: size_t
+        +health_check_interval_ms: uint32_t
+        +health_thread: void*
+        +alert_manager: pmbus_alert_manager*
+        --
+        +start_monitoring(): int
+        +stop_monitoring(): int
+        +add_device(device: pmbus_device_base*): int
+        +remove_device(device: pmbus_device_base*): int
+        +check_device_health(device: pmbus_device_base*): pmbus_health_status
+        +set_health_thresholds(thresholds: pmbus_health_thresholds*): int
+        +get_health_report(device: pmbus_device_base*): pmbus_health_report*
+        +get_system_health_summary(): pmbus_system_health_summary*
+        +register_health_callback(callback: pmbus_health_callback): int
+        +unregister_health_callback(callback: pmbus_health_callback): int
+        -perform_comprehensive_health_check(device: pmbus_device_base*): pmbus_health_status
+        -analyze_health_trends(device: pmbus_device_base*): pmbus_health_trend*
+        -generate_health_alerts(device: pmbus_device_base*, \n                       health: pmbus_health_status): int
+    }
+
+}
+
+' Relationships
+pmbus_device_base <|.. pmbus_generic_device : implements
+pmbus_generic_device <|-- pmbus_vendor_device : extends
+pmbus_vendor_device <|-- pmbus_linear_technology_device : implements
+pmbus_vendor_device <|-- pmbus_analog_devices_device : implements
+pmbus_vendor_device <|-- pmbus_texas_instruments_device : implements
+
+pmbus_generic_device *-- pmbus_config_manager : manages
+pmbus_generic_device *-- pmbus_performance_monitor : monitors
+pmbus_generic_device --> pmbus_device_descriptor : describes
+
+pmbus_hybrid_device_factory --> pmbus_optimization_engine : uses
+pmbus_hybrid_device_factory --> pmbus_vendor_factory : delegates to
+pmbus_vendor_factory <|.. pmbus_linear_technology_factory : implements
+
+pmbus_device_manager --> pmbus_device_lifecycle : manages
+pmbus_device_manager --> pmbus_health_monitor : uses
+pmbus_device_lifecycle --> pmbus_device_base : tracks
+
+pmbus_device_descriptor --> pmbus_device_type : categorizes
+pmbus_device_descriptor --> pmbus_device_class : classifies
+pmbus_device_descriptor --> pmbus_optimization_level : specifies
+
+pmbus_device_creation_context --> pmbus_device_info : contains
+pmbus_device_creation_context --> pmbus_device_capabilities : specifies
+pmbus_device_creation_context --> pmbus_optimization_level : requests
+
+note top of pmbus_device_base
+    **Base Device Interface**
+    - Common interface for all PMBus devices
+    - Lifecycle management support
+    - Reference counting for safe destruction
+    - Standard configuration and status operations
+    - Alert handling and standby management
+end note
+
+note top of pmbus_generic_device
+    **Generic Implementation**
+    - Full PMBus protocol implementation
+    - Works with any PMBus-compliant device
+    - Configurable limits and protection
+    - Comprehensive telemetry support
+    - Performance monitoring and statistics
+    - Configuration management with persistence
+end note
+
+note top of pmbus_vendor_device
+    **Vendor-Specific Base**
+    - Abstract base for vendor optimizations
+    - Vendor command set integration
+    - Custom data format support
+    - Vendor-specific fault handling
+    - Calibration and factory settings
+    - Extended telemetry capabilities
+end note
+
+note top of pmbus_linear_technology_device
+    **Linear Technology Optimization**
+    - LT-specific command implementations
+    - Advanced fault logging system
+    - Switching frequency optimization
+    - Phase management and interleaving
+    - Efficiency monitoring and droop compensation
+    - Peak current tracking and sync settings
+end note
+
+note top of pmbus_hybrid_device_factory
+    **Hybrid Factory System**
+    - Automatic optimal implementation selection
+    - Performance benchmarking and comparison
+    - Dynamic device type migration
+    - Machine learning optimization
+    - Vendor factory delegation
+    - Creation history and analytics
+end note
+
+note top of pmbus_device_manager
+    **Device Lifecycle Management**
+    - Complete device lifecycle tracking
+    - State transition management
+    - Health monitoring and maintenance scheduling
+    - Device statistics and reporting
+    - Multi-device coordination
+    - Graceful shutdown procedures
+end note
+
+note bottom of pmbus_optimization_engine
+    **Performance Optimization**
+    - Workload analysis and recommendations
+    - Performance prediction and learning
+    - Benchmarking and comparison matrices
+    - Configuration optimization
+    - Historical performance tracking
+end note
+
+@enduml
