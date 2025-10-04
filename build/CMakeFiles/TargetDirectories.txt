@@ -1,5 +1,0 @@
-/home/cj/pmbus_dpsm/build/CMakeFiles/edit_cache.dir
-/home/cj/pmbus_dpsm/build/CMakeFiles/rebuild_cache.dir
-/home/cj/pmbus_dpsm/build/src/CMakeFiles/lt-pmbusapp.dir
-/home/cj/pmbus_dpsm/build/src/CMakeFiles/edit_cache.dir
-/home/cj/pmbus_dpsm/build/src/CMakeFiles/rebuild_cache.dir
