@@ -3,3 +3,42 @@ Makefile.in
 aclocal.m4
 autom4te.cache/
 build-autotools/
+
+# Build directories
+build/
+*build*/
+
+# Autotools generated files
+config.h
+config.log
+config.status
+stamp-h*
+configure~
+config.h.in~
+
+# Dependency files
+.deps/
+*.Po
+
+# Object files and executables
+*.o
+*.lo
+*.la
+*.so
+*.so.*
+*.a
+
+# Backup files
+*~
+*.bak
+*.orig
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
