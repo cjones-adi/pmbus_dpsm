@@ -24,6 +24,7 @@ bug fixes, and improvements are welcome to continually improve the code.
 * In System Programming
 * PMBus and SMBus layers
 * Device abstractions
+* **USB-to-I2C bridge support** (new) - Works with DC1613A and similar adapters
 
 ## License
 
@@ -39,6 +40,10 @@ This code has be used on Rasp Pi and with a DLN-2. Some Raspberry Pi versons
 require enabling of the REPEATED START via linux commands. If REPEATED START
 does not work, search the internet for help. The DLN-2 was mainly used
 for debugging code on a laptop and is not recommended for production use.
+
+The application now also supports **USB-to-I2C bridge devices** such as DC1613A,
+FTDI adapters, and other serial-based I2C bridges. See [USB_I2C_BRIDGE.md](USB_I2C_BRIDGE.md)
+for detailed information.
 
 ### Raspberry Pi 4
 
@@ -56,6 +61,16 @@ Follow these steps:
 * src/LT_PMBusApp -i
 
 This will run the application in interactive mode with a menu.
+
+### USB-to-I2C Bridge (DC1613A, FTDI, etc.)
+
+* Connect your USB-to-I2C bridge to your PC
+* Verify it appears as /dev/ttyUSB0 or similar
+* Add your user to the dialout group: `sudo usermod -a -G dialout $USER`
+* Logout and login again
+* src/LT_PMBusApp -d /dev/ttyUSB0 -i
+
+For more details, see [USB_I2C_BRIDGE.md](USB_I2C_BRIDGE.md).
 
 ## Automake from scratch
 

@@ -16,6 +16,10 @@ list(APPEND _sources
 	LT_PMBusDeviceLTC3887.cpp
 	LT_PMBusDeviceLTM4678.cpp
 	LT_SMBus.cpp
+	LT_SMBusSerial.cpp
+	LT_SMBusSerialNoPec.cpp
+	LT_SMBusSerialPec.cpp
+	LT_I2CDriverManager.cpp
 	LT_2972FaultLog.cpp
 	LT_3884FaultLog.cpp
 	LT_PMBusDeviceLTC2978.cpp

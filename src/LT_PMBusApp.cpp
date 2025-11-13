@@ -40,11 +40,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <mcheck.h>
 
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include "LT_Exception.h"
 #include "LT_SMBusNoPec.h"
 #include "LT_SMBusPec.h"
+#include "LT_SMBusSerialNoPec.h"
+#include "LT_SMBusSerialPec.h"
 #include "LT_PMBus.h"
 #include "LT_PMBusMath.h"
+#include "LT_I2CDriverManager.h"
 #include <LT_PMBusDevice.h>
 #include <LT_SMBusGroup.h>
 #include <LT_PMBusRail.h>
@@ -54,8 +58,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace std;
 
-static LT_SMBusNoPec *smbusNoPec;
-static LT_SMBusPec *smbusPec;
+static LT_SMBus *smbusNoPec;
+static LT_SMBus *smbusPec;
+static LT_SMBusNoPec *smbusNoPecTyped;  // Needed for NVM operations
+static LT_SMBusPec *smbusPecTyped;      // Needed for NVM operations
 static LT_PMBus *pmbusNoPec;
 static LT_PMBus *pmbusPec;
 static LT_SMBus *smbus;
@@ -72,6 +78,66 @@ void menu_1_basic_commands(void);
 void menu_2_basic_commands(void);
 void menu_3_basic_commands(void);
 
+// Detect if device is a serial/USB bridge or native I2C
+bool is_serial_device(const char *dev)
+{
+  if (dev == NULL)
+    return false;
+  
+  // Check if device path contains "tty" (serial/USB device)
+  if (strstr(dev, "/dev/tty") != NULL)
+    return true;
+  
+  // Check if it's a character device (serial ports are char devices)
+  struct stat st;
+  if (stat(dev, &st) == 0)
+  {
+    if (S_ISCHR(st.st_mode))
+    {
+      // Character device - could be serial
+      // Check major device number (typical serial devices have major 4 or 188)
+      unsigned int major = (st.st_rdev >> 8) & 0xff;
+      if (major == 4 || major == 188 || major == 166)  // tty, USB serial, ACM
+        return true;
+    }
+  }
+  
+  return false;
+}
+
+// Create SMBus instances based on device type
+void create_smbus_instances(const char *dev)
+{
+  if (is_serial_device(dev))
+  {
+    printf("Detected USB-to-I2C bridge device: %s\n", dev);
+    LT_SMBusSerialNoPec *serialNoPec = new LT_SMBusSerialNoPec(dev);
+    LT_SMBusSerialPec *serialPec = new LT_SMBusSerialPec(dev);
+    smbusNoPec = serialNoPec;
+    smbusPec = serialPec;
+    // For NVM operations, we need the specific types
+    // Since serial bridges don't inherit from LT_SMBusNoPec/Pec, we'll use the base pointers
+    smbusNoPecTyped = nullptr;  // Serial bridges don't support direct NVM access
+    smbusPecTyped = nullptr;
+  }
+  else if (dev != NULL)
+  {
+    printf("Using I2C device: %s\n", dev);
+    smbusNoPecTyped = new LT_SMBusNoPec((char *)dev);
+    smbusPecTyped = new LT_SMBusPec((char *)dev);
+    smbusNoPec = smbusNoPecTyped;
+    smbusPec = smbusPecTyped;
+  }
+  else
+  {
+    printf("Using default I2C device: /dev/i2c-0\n");
+    smbusNoPecTyped = new LT_SMBusNoPec();
+    smbusPecTyped = new LT_SMBusPec();
+    smbusNoPec = smbusNoPecTyped;
+    smbusPec = smbusPecTyped;
+  }
+}
+
 void wait_for_nvm()
 {
   usleep(4000000); // Allow time for action to complete.
@@ -81,7 +147,14 @@ void program_nvm (char *path)
 {
   bool worked;
 
-  NVM *nvm = new NVM(pmbusNoPec, smbusNoPec, smbusPec);
+  if (smbusNoPecTyped == nullptr || smbusPecTyped == nullptr)
+  {
+    printf("Warning: NVM programming not supported with USB-to-I2C bridges\n");
+    printf("Please use native I2C device for NVM programming\n");
+    return;
+  }
+
+  NVM *nvm = new NVM(pmbusNoPec, smbusNoPecTyped, smbusPecTyped);
 
   printf("Please wait for programming EEPROM...\n");
   if (path == NULL)
@@ -99,7 +172,14 @@ void verify_nvm (char *path)
 {
   bool worked;
 
-  NVM *nvm = new NVM(pmbusNoPec, smbusNoPec, smbusPec);
+  if (smbusNoPecTyped == nullptr || smbusPecTyped == nullptr)
+  {
+    printf("Warning: NVM verification not supported with USB-to-I2C bridges\n");
+    printf("Please use native I2C device for NVM verification\n");
+    return;
+  }
+
+  NVM *nvm = new NVM(pmbusNoPec, smbusNoPecTyped, smbusPecTyped);
 
   printf("Please wait for verification of EEPROM...\n");
   if (path == NULL)
@@ -683,7 +763,7 @@ int main(int argc, char * argv[]) {
 
 
 
-        while ((opt = getopt(argc, argv, "d:s:e:c:p:v:x:i ")) != -1) {
+        while ((opt = getopt(argc, argv, "d:s:e:c:p:S:v:x:i ")) != -1) {
 	        switch (opt) {
 	        case 'd':
 			printf("Operate with device %s\n", optarg);
@@ -692,16 +772,7 @@ int main(int argc, char * argv[]) {
 	        case 'p':
 				printf("Program with file %s\n", optarg);
 	    		mtrace();
-				if (dev != NULL)
-				{
-					smbusNoPec = new LT_SMBusNoPec(dev);
-					smbusPec = new LT_SMBusPec(dev);
-				}
-				else
-				{
-					smbusNoPec = new LT_SMBusNoPec();
-					smbusPec = new LT_SMBusPec();
-				}
+				create_smbus_instances(dev);
 				pmbusNoPec = new LT_PMBus(smbusNoPec);
 				pmbusPec = new LT_PMBus(smbusPec);
 				smbus = smbusNoPec;
@@ -717,18 +788,64 @@ int main(int argc, char * argv[]) {
 				delete(smbusNoPec);
 				exit(EXIT_SUCCESS);
 	            		break;
+	        case 'S':
+				printf("Safe Program with file %s (auto-unbind/rebind drivers)\n", optarg);
+	    		mtrace();
+				{
+					// Create driver manager for auto-unbind/rebind
+					LT_I2CDriverManager drvMgr(dev ? dev : "/dev/i2c-0");
+					
+					// Check if this is actually an I2C device (not serial)
+					if (is_serial_device(dev ? dev : "/dev/i2c-0")) {
+						printf("Warning: Device appears to be serial/USB bridge, not I2C.\n");
+						printf("Safe programming (driver unbind) only applies to native I2C devices.\n");
+						printf("Proceeding with normal programming...\n");
+					} else {
+						// Unbind drivers before programming
+						printf("\n=== Step 1: Unbinding kernel drivers ===\n");
+						if (!drvMgr.unbind()) {
+							printf("Warning: Failed to unbind all drivers\n");
+							printf("Proceeding anyway, but conflicts may occur\n");
+						}
+						printf("\n");
+					}
+					
+					// Program EEPROM
+					printf("=== Step 2: Programming EEPROM ===\n");
+					create_smbus_instances(dev);
+					pmbusNoPec = new LT_PMBus(smbusNoPec);
+					pmbusPec = new LT_PMBus(smbusPec);
+					smbus = smbusNoPec;
+					pmbus = pmbusNoPec;
+					program_nvm(optarg);
+					verify_nvm(optarg);
+					pmbus->resetGlobal();
+					printf("\n");
+					
+					// Cleanup before rebinding
+					delete(detector);
+					delete(pmbusPec);
+					delete(pmbusNoPec);
+					delete(smbusPec);
+					delete(smbusNoPec);
+					
+					// Give device time to reset
+					printf("Waiting 2 seconds for device to stabilize...\n");
+					sleep(2);
+					
+					// Rebind drivers (happens automatically in drvMgr destructor)
+					printf("=== Step 3: Rebinding kernel drivers ===\n");
+				}  // drvMgr destructor rebinds here
+				
+				printf("\n=== Safe Programming Complete ===\n");
+				printf("Device has been programmed and drivers rebound.\n");
+				printf("Telemetry should resume automatically.\n");
+				muntrace();
+				exit(EXIT_SUCCESS);
+	            		break;
 	        case 'i':
 	        	mtrace();
-	        	if (dev != NULL)
-		    	{
-					smbusNoPec = new LT_SMBusNoPec(dev);
-					smbusPec = new LT_SMBusPec(dev);
-				}
-				else
-				{
-					smbusNoPec = new LT_SMBusNoPec();
-					smbusPec = new LT_SMBusPec();
-				}
+	        	create_smbus_instances(dev);
 				pmbusNoPec = new LT_PMBus(smbusNoPec);
 				pmbusPec = new LT_PMBus(smbusPec);
 				smbus = smbusNoPec;
@@ -749,16 +866,7 @@ int main(int argc, char * argv[]) {
 	            break;
 	        case 'v':
                         mtrace();
-	        	if (dev != NULL)
-		    		{
-				smbusNoPec = new LT_SMBusNoPec(dev);
-				smbusPec = new LT_SMBusPec(dev);
-				}
-				else
-				{
-				smbusNoPec = new LT_SMBusNoPec();
-				smbusPec = new LT_SMBusPec();
-				}
+	        	create_smbus_instances(dev);
 				pmbusNoPec = new LT_PMBus(smbusNoPec);
 				pmbusPec = new LT_PMBus(smbusPec);
 				smbus = smbusNoPec;
@@ -789,16 +897,7 @@ int main(int argc, char * argv[]) {
 	        	        break;
                    case 'e':
                         mtrace();
-	        	if (dev != NULL)
-		    		{
-				smbusNoPec = new LT_SMBusNoPec(dev);
-				smbusPec = new LT_SMBusPec(dev);
-				}
-				else
-				{
-				smbusNoPec = new LT_SMBusNoPec();
-				smbusPec = new LT_SMBusPec();
-				}
+	        	create_smbus_instances(dev);
 				pmbusNoPec = new LT_PMBus(smbusNoPec);
 				pmbusPec = new LT_PMBus(smbusPec);
 				smbus = smbusNoPec;
@@ -826,16 +925,7 @@ int main(int argc, char * argv[]) {
 	        	break;
                    case 'c':
                         mtrace();
-	        	if (dev != NULL)
-		    		{
-				smbusNoPec = new LT_SMBusNoPec(dev);
-				smbusPec = new LT_SMBusPec(dev);
-				}
-				else
-				{
-				smbusNoPec = new LT_SMBusNoPec();
-				smbusPec = new LT_SMBusPec();
-				}
+	        	create_smbus_instances(dev);
 				pmbusNoPec = new LT_PMBus(smbusNoPec);
 				pmbusPec = new LT_PMBus(smbusPec);
 				smbus = smbusNoPec;
@@ -863,16 +953,7 @@ int main(int argc, char * argv[]) {
 	        	break;
                    case 's':
                         mtrace();
-	        	if (dev != NULL)
-		    		{
-				smbusNoPec = new LT_SMBusNoPec(dev);
-				smbusPec = new LT_SMBusPec(dev);
-				}
-				else
-				{
-				smbusNoPec = new LT_SMBusNoPec();
-				smbusPec = new LT_SMBusPec();
-				}
+	        	create_smbus_instances(dev);
 				pmbusNoPec = new LT_PMBus(smbusNoPec);
 				pmbusPec = new LT_PMBus(smbusPec);
 				smbus = smbusNoPec;
@@ -900,16 +981,7 @@ int main(int argc, char * argv[]) {
 	        	break;
                    case 'x':
                         mtrace();
-	        	if (dev != NULL)
-		    		{
-				smbusNoPec = new LT_SMBusNoPec(dev);
-				smbusPec = new LT_SMBusPec(dev);
-				}
-				else
-				{
-				smbusNoPec = new LT_SMBusNoPec();
-				smbusPec = new LT_SMBusPec();
-				}
+	        	create_smbus_instances(dev);
 				pmbusNoPec = new LT_PMBus(smbusNoPec);
 				pmbusPec = new LT_PMBus(smbusPec);
 				smbus = smbusNoPec;
@@ -941,7 +1013,17 @@ int main(int argc, char * argv[]) {
 				delete(pmbusNoPec);
 				delete(smbusPec);
 				delete(smbusNoPec);
-	            fprintf(stderr, "Usage: %s [-d dev] ([-p file] | [-v address] | [-x address] |\n   [-e address] | [-s address] | [-c address] | [-i]\n", argv[0]);
+	            fprintf(stderr, "Usage: %s [-d dev] ([-p file] | [-S file] | [-v address] | [-x address] |\n   [-e address] | [-s address] | [-c address] | [-i])\n", argv[0]);
+	            fprintf(stderr, "\nOptions:\n");
+	            fprintf(stderr, "  -d dev        Specify I2C device (default: /dev/i2c-0) or serial port (/dev/ttyUSB0)\n");
+	            fprintf(stderr, "  -p file       Program EEPROM from HEX file\n");
+	            fprintf(stderr, "  -S file       Safe program EEPROM (auto-unbind/rebind drivers, requires sudo)\n");
+	            fprintf(stderr, "  -v address    View fault log for device at address\n");
+	            fprintf(stderr, "  -e address    Enable fault log for device at address\n");
+	            fprintf(stderr, "  -c address    Clear fault log for device at address\n");
+	            fprintf(stderr, "  -s address    Store configuration for device at address\n");
+	            fprintf(stderr, "  -x address    Restore configuration for device at address\n");
+	            fprintf(stderr, "  -i            Interactive mode\n");
 	            exit(EXIT_FAILURE);
 	        }
 	    }
@@ -957,7 +1039,17 @@ int main(int argc, char * argv[]) {
 	delete(pmbusNoPec);
 	delete(smbusPec);
 	delete(smbusNoPec);
-    fprintf(stderr, "Usage: %s [-d dev] ([-p file] | [-v address] | [-x address] |\n   [-e address] | [-s address] | [-c address] | [-i])\n", argv[0]);
+    fprintf(stderr, "Usage: %s [-d dev] ([-p file] | [-S file] | [-v address] | [-x address] |\n   [-e address] | [-s address] | [-c address] | [-i])\n", argv[0]);
+    fprintf(stderr, "\nOptions:\n");
+    fprintf(stderr, "  -d dev        Specify I2C device (default: /dev/i2c-0) or serial port (/dev/ttyUSB0)\n");
+    fprintf(stderr, "  -p file       Program EEPROM from HEX file\n");
+    fprintf(stderr, "  -S file       Safe program EEPROM (auto-unbind/rebind drivers, requires sudo)\n");
+    fprintf(stderr, "  -v address    View fault log for device at address\n");
+    fprintf(stderr, "  -e address    Enable fault log for device at address\n");
+    fprintf(stderr, "  -c address    Clear fault log for device at address\n");
+    fprintf(stderr, "  -s address    Store configuration for device at address\n");
+    fprintf(stderr, "  -x address    Restore configuration for device at address\n");
+    fprintf(stderr, "  -i            Interactive mode\n");
     exit(EXIT_FAILURE);
 }
 

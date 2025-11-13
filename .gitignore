@@ -24,3 +24,4 @@ Makefile
 *.rej
 *.orig
 stamp-h1
+src/LT_PMBusApp
