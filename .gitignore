@@ -1,0 +1,26 @@
+# Temporary files
+src/Makefile.am
+src/Makefile.in
+aclocal.m4
+autom4te.cache/
+configure
+config.h
+config.log
+config.status
+src/.deps/
+build/
+autom4te.cache/
+*.o
+*.lo
+*.la
+*.so
+*.a
+*.dll
+*.exe
+*.obj
+*.pdb
+Makefile.in
+Makefile
+*.rej
+*.orig
+stamp-h1
